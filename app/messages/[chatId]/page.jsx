@@ -4,14 +4,14 @@ import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Send, ChevronLeft, X, CheckCheck, MapPin, 
+  Send, ChevronLeft, X, Check, CheckCheck, MapPin, 
   Shield, Loader2 
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { db } from "@/lib/firebase";
 import { 
   collection, addDoc, query, orderBy, onSnapshot, 
-  serverTimestamp, doc, updateDoc, getDoc 
+  serverTimestamp, doc, updateDoc, getDoc, writeBatch 
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -87,6 +87,28 @@ export default function ChatPage() {
 
     return () => unsubscribe();
   }, [chatId]);
+  
+  // 4. Mark messages as seen when they arrive
+  useEffect(() => {
+    if (!chatId || !currentUser || messages.length === 0) return;
+
+    const markAsSeen = async () => {
+      const unseenMessages = messages.filter(
+        m => m.senderId !== currentUser.uid && m.status !== 'seen'
+      );
+
+      if (unseenMessages.length > 0) {
+        const batch = writeBatch(db);
+        unseenMessages.forEach((m) => {
+          const msgRef = doc(db, "chats", chatId, "messages", m.id);
+          batch.update(msgRef, { status: "seen" });
+        });
+        await batch.commit();
+      }
+    };
+
+    markAsSeen();
+  }, [chatId, currentUser, messages]);
 
   // 4. Send Message Logic
   const send = async (e) => {
@@ -101,7 +123,8 @@ export default function ChatPage() {
       await addDoc(collection(db, "chats", chatId, "messages"), {
         text,
         senderId: currentUser.uid,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        status: "sent"
       });
 
       // Update parent chat doc
@@ -173,7 +196,15 @@ export default function ChatPage() {
                   <p className="leading-relaxed">{m.text}</p>
                   <div className={`text-[9px] mt-1 flex items-center gap-1 ${isMe ? 'text-white/60 justify-end' : 'text-brand-gray'}`}>
                     {m.createdAt?.toDate ? m.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
-                    {isMe && <CheckCheck size={12} />}
+                    
+                    {isMe && (
+                      <div className="flex items-center">
+                        {m.status === 'sent' && <Check size={12} className="text-white/70" />}
+                        {m.status === 'delivered' && <CheckCheck size={12} className="text-white/70" />}
+                        {m.status === 'seen' && <CheckCheck size={12} className="text-blue-300" />}
+                        {!m.status && <Check size={12} className="text-white/70" />}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
