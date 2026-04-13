@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   MapPin, CalendarDays, Users, Search, X,
   Heart, MessageCircle, TrendingUp, Navigation, ChevronRight
@@ -153,50 +155,71 @@ export default function ExploreEvents() {
   const [joiningEvent, setJoiningEvent] = useState(null);
 
   const [allEvents, setAllEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    import('firebase/firestore').then(({ collection, getDocs, doc, getDoc }) => {
-      import('@/lib/firebase').then(async ({ db }) => {
-        try {
-          const snapshot = await getDocs(collection(db, 'events'));
-          const eventsData = [];
-          for (let document of snapshot.docs) {
-             const data = document.data();
-             const uid = data.createdBy;
-             let creatorInfo = { name: "Unknown", img: "https://ui-avatars.com/api/?name=U" };
-             if (uid) {
-                const uSnap = await getDoc(doc(db, 'users', uid));
-                if (uSnap.exists()) {
-                   const uData = uSnap.data();
-                   if (!uData.isRealUser) continue; 
-                   creatorInfo.name = uData.name || "Unknown";
-                   creatorInfo.img = uData.profilePic || (uData.photos && uData.photos[0]) || "https://ui-avatars.com/api/?name=" + encodeURIComponent(uData.name || "U");
-                }
-             }
+    const fetchEvents = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'events'));
+        const eventsData = [];
+        for (let document of snapshot.docs) {
+           const data = document.data();
+           const uid = data.createdBy;
+           let creatorInfo = { name: "Unknown", img: "https://ui-avatars.com/api/?name=U" };
+           if (uid) {
+              const uSnap = await getDoc(doc(db, 'users', uid));
+              if (uSnap.exists()) {
+                 const uData = uSnap.data();
+                 if (!uData.isRealUser) continue; 
+                 creatorInfo.name = uData.name || "Unknown";
+                 creatorInfo.img = uData.profilePic || (uData.photos && uData.photos[0]) || "https://ui-avatars.com/api/?name=" + encodeURIComponent(uData.name || "U");
+              }
+           }
 
-             eventsData.push({
-               id: document.id,
-               title: data.title || 'Untitled',
-               description: data.description || '',
-               creator: creatorInfo,
-               location: data.location || 'Global',
-               date: data.date || (data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString() : 'Soon'),
-               slots: data.slots || 10,
-               joined: data.participants?.length || 1,
-               interested: Math.floor(Math.random() * 50) + 10,
-               activities: data.activities || [],
-               imgs: data.images?.length ? data.images : ["https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=800"],
-               trending: Math.random() > 0.7,
-               nearYou: Math.random() > 0.5
-             });
-          }
-          setAllEvents(eventsData);
-        } catch (e) {
-          console.error("Error fetching events:", e);
+           eventsData.push({
+             id: document.id,
+             title: data.title || 'Untitled',
+             description: data.description || '',
+             creator: creatorInfo,
+             location: data.location || 'Global',
+             date: data.date || (data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString() : 'Soon'),
+             slots: data.slots || 10,
+             joined: data.participants?.length || 1,
+             interested: Math.floor(Math.random() * 50) + 10,
+             activities: data.activities || [],
+             imgs: data.images?.length ? data.images : ["https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=800"],
+             trending: Math.random() > 0.7,
+             nearYou: Math.random() > 0.5
+           });
         }
-      });
-    });
+        setAllEvents(eventsData);
+      } catch (e) {
+        console.error("Error fetching events:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
   }, []);
+
+  const createEvent = async () => {
+    try {
+      await addDoc(collection(db, "events"), {
+        title: "Test Event",
+        city: "Chennai",
+        location: "Marina Beach",
+        createdBy: "testUser",
+        participants: ["testUser"],
+        maxParticipants: 10,
+        price: 0,
+        activities: ["Hangout 😌"],
+        createdAt: serverTimestamp()
+      });
+      alert("Event created successfully! Please refresh.");
+    } catch (error) {
+      console.error("Error creating event:", error);
+    }
+  };
 
   // 1. apply search + activity filters
   const filtered = allEvents.filter(ev => {
@@ -230,20 +253,30 @@ export default function ExploreEvents() {
           {search && <button onClick={() => setSearch('')}><X size={14} className="text-gray-400" /></button>}
         </div>
 
-        {/* Activity chips */}
-        <div className="flex gap-2 flex-wrap mb-8">
-          {ACTIVITY_FILTERS.map(f => (
-            <motion.button whileTap={{ scale: 0.93 }} key={f}
-              onClick={() => setActivityFilter(f)}
-              className={`px-4 py-2 rounded-full text-sm font-bold border transition-all ${activityFilter === f ? 'bg-brand-dark text-white border-brand-dark' : 'bg-white text-brand-gray border-gray-200 hover:border-brand-dark'}`}
-            >
-              {f}
-            </motion.button>
-          ))}
+        {/* Activity chips & Test Button */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div className="flex gap-2 flex-wrap">
+            {ACTIVITY_FILTERS.map(f => (
+              <motion.button whileTap={{ scale: 0.93 }} key={f}
+                onClick={() => setActivityFilter(f)}
+                className={`px-4 py-2 rounded-full text-sm font-bold border transition-all ${activityFilter === f ? 'bg-brand-dark text-white border-brand-dark' : 'bg-white text-brand-gray border-gray-200 hover:border-brand-dark'}`}
+              >
+                {f}
+              </motion.button>
+            ))}
+          </div>
+          <button onClick={createEvent} className="px-4 py-2 bg-[#D4AF37] text-white font-bold rounded-xl shadow-md hover:opacity-90 text-sm">
+            Create Test Event
+          </button>
         </div>
 
         {/* Flat event grid — NO duplicate sections */}
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div style={{ width: 48, height: 48, borderRadius: '50%', border: '4px solid rgba(212,175,55,0.2)', borderTopColor: '#D4AF37', animation: 'spin 0.8s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((ev, i) => (
               <EventCard key={ev.id} event={ev} onJoin={setJoiningEvent} index={i} />
@@ -253,7 +286,7 @@ export default function ExploreEvents() {
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🔍</div>
             <h3 className="text-xl font-bold text-brand-dark mb-2">No events found</h3>
-            <p className="text-brand-gray text-sm">Try different filters or check back later!</p>
+            <p className="text-brand-gray text-sm">Try different filters or create a new event!</p>
           </div>
         )}
       </div>
