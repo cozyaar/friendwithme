@@ -453,18 +453,36 @@ export default function Onboarding() {
         const month = parseInt(next.dobMonth) - 1; // 0-indexed
         const day = parseInt(next.dobDay);
         
-        const birthDate = new Date(year, month, day);
-        const today = new Date();
-        
-        let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          calculatedAge--;
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          const birthDate = new Date(year, month, day);
+          
+          // Check if date is valid
+          if (!isNaN(birthDate.getTime())) {
+            const today = new Date();
+            let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+              calculatedAge--;
+            }
+            
+            if (!isNaN(calculatedAge)) {
+              next.age = calculatedAge.toString();
+              console.log(`[Onboarding] Calculation Success: ${next.age} from ${year}-${month+1}-${day}`);
+            } else {
+              console.warn(`[Onboarding] Calculated age was NaN: year=${year}, month=${month}, day=${day}`);
+            }
+          } else {
+            console.warn(`[Onboarding] Invalid BirthDate object created: ${year}-${month+1}-${day}`);
+            next.age = '';
+          }
+        } else {
+          console.warn(`[Onboarding] Parsed DOB parts contain NaN: year=${year}, month=${month}, day=${day}`);
+          next.age = '';
         }
-        
-        next.age = calculatedAge.toString();
-        console.log(`[Onboarding] Calculated Age: ${next.age} from ${year}-${month+1}-${day}`);
+      } else {
+        // Clear age if any DOB part is missing
+        next.age = '';
       }
       
       return next;
@@ -595,7 +613,11 @@ export default function Onboarding() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <label className="block text-brand-gray font-semibold text-sm uppercase tracking-wider">Date of Birth</label>
-            {data.age && <span className={`font-bold text-sm px-2 py-0.5 rounded-md ${parseInt(data.age) >= 18 ? 'text-brand-purple bg-brand-purple/10' : 'text-red-500 bg-red-100'}`}>{data.age} yrs {parseInt(data.age) < 18 ? '(Under 18)' : ''}</span>}
+            {data.age && !isNaN(parseInt(data.age)) && (
+              <span className={`font-bold text-sm px-2 py-0.5 rounded-md ${parseInt(data.age) >= 18 ? 'text-brand-purple bg-brand-purple/10' : 'text-red-500 bg-red-100'}`}>
+                {data.age} yrs {parseInt(data.age) < 18 ? '(Under 18)' : ''}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
