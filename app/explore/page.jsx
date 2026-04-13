@@ -260,9 +260,24 @@ export default function Explore() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allProfiles, setAllProfiles] = useState([]);
 
-  // Use direct Firebase state to avoid localStorage desyncs
+  // Correct Hook Order: All hooks must be at the top
   const [dbUser, setDbUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [matchInfo, setMatchInfo] = useState(null);
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [showMatch, setShowMatch] = useState(false);
+  
+  // Swipe mechanics hooks (MUST be at top)
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-300, 300], [-30, 30]);
+  const opacity = useTransform(x, [-300, -150, 0, 150, 300], [0, 1, 1, 1, 0]);
+  const likeOpacity = useTransform(x, [50, 150], [0, 1]);
+  const skipOpacity = useTransform(x, [-50, -150], [0, 1]);
+
+  const [userLoc, setUserLoc] = useState(null); // { lat, lng }
+  const [locStatus, setLocStatus] = useState('idle'); // idle | loading | ok | denied
+  const [manualCity, setManualCity] = useState('');
+  const [showCityPicker, setShowCityPicker] = useState(false);
 
   // Fetch Real Users Feature
   useEffect(() => {
@@ -358,13 +373,8 @@ export default function Explore() {
     });
   }, [router]);
 
-  // Location state
-  const [userLoc, setUserLoc] = useState(null); // { lat, lng }
-  const [locStatus, setLocStatus] = useState('idle'); // idle | loading | ok | denied
-  const [manualCity, setManualCity] = useState('');
-  const [showCityPicker, setShowCityPicker] = useState(false);
-
-  // Request geolocation
+  // Location hooks already moved to top 
+  // requestLocation hook logic moves here
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) { setLocStatus('denied'); return; }
     setLocStatus('loading');
@@ -463,25 +473,7 @@ export default function Explore() {
   }
 
 
-  const activeFilterCount = [
-    filters.distance < 50,
-    filters.priceMax < 5000 || filters.priceMin > 0,
-    filters.vibes.length > 0,
-    filters.services.length > 0,
-    filters.ageMin > 18 || filters.ageMax < 40,
-    filters.minRating > 0,
-    filters.verifiedOnly,
-    filters.bestMatch,
-  ].filter(Boolean).length;
-
-  const [matchInfo, setMatchInfo] = useState(null);
-  
-  // Swipe mechanics
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, [-300, 300], [-30, 30]);
-  const opacity = useTransform(x, [-300, -150, 0, 150, 300], [0, 1, 1, 1, 0]);
-  const likeOpacity = useTransform(x, [50, 150], [0, 1]);
-  const skipOpacity = useTransform(x, [-50, -150], [0, 1]);
+  const profile = filteredProfiles[currentIndex];
 
   const handleLike = async (targetUserId) => {
     if (!dbUser) { router.push('/login'); return; }
@@ -596,7 +588,18 @@ export default function Explore() {
     }
   };
 
-  const [loadingChat, setLoadingChat] = useState(false);
+  // loadingChat hook moved to top
+  
+  const activeFilterCount = [
+    filters.distance < 50,
+    filters.priceMax < 5000 || filters.priceMin > 0,
+    filters.vibes.length > 0,
+    filters.services.length > 0,
+    filters.ageMin > 18 || filters.ageMax < 40,
+    filters.minRating > 0,
+    filters.verifiedOnly,
+    filters.bestMatch,
+  ].filter(Boolean).length;
 
   const nextImage = () => {
     if (profile && imageIndex < profile.images.length - 1) setImageIndex(p => p + 1);
