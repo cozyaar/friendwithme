@@ -11,7 +11,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { db } from "@/lib/firebase";
 import { 
   collection, addDoc, query, orderBy, onSnapshot, 
-  serverTimestamp, doc, updateDoc, getDoc, writeBatch 
+  serverTimestamp, doc, updateDoc, getDoc, writeBatch,
+  increment 
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -110,6 +111,23 @@ export default function ChatPage() {
     markAsSeen();
   }, [chatId, currentUser, messages]);
 
+  // 5. Reset unread count for current user
+  useEffect(() => {
+    if (!chatId || !currentUser) return;
+    
+    const resetUnread = async () => {
+      try {
+        await updateDoc(doc(db, "chats", chatId), {
+          [`unreadCount.${currentUser.uid}`]: 0
+        });
+      } catch (err) {
+        console.error("Error resetting unread:", err);
+      }
+    };
+
+    resetUnread();
+  }, [chatId, currentUser]);
+
   // 4. Send Message Logic
   const send = async (e) => {
     e?.preventDefault();
@@ -128,10 +146,17 @@ export default function ChatPage() {
       });
 
       // Update parent chat doc
-      await updateDoc(doc(db, "chats", chatId), {
+      const receiverId = otherUser?.id;
+      const updateData = {
         lastMessage: text,
-        updatedAt: serverTimestamp()
-      });
+        updatedAt: serverTimestamp(),
+      };
+      
+      if (receiverId) {
+        updateData[`unreadCount.${receiverId}`] = increment(1);
+      }
+
+      await updateDoc(doc(db, "chats", chatId), updateData);
     } catch (err) {
       console.error("Error sending message:", err);
       alert("Failed to send message. Please try again.");

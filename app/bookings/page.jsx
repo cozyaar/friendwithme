@@ -189,8 +189,10 @@ function MessageCard({ item, index }) {
             {item.preview}
           </p>
         </div>
-        {item.unread && (
-          <div className="w-2.5 h-2.5 bg-brand-purple rounded-full shrink-0" />
+        {item.unread > 0 && (
+          <div className="min-w-[20px] h-5 bg-brand-purple rounded-full shrink-0 flex items-center justify-center px-1.5 shadow-sm">
+            <span className="text-[10px] font-bold text-white leading-none">{item.unread}</span>
+          </div>
         )}
       </Link>
     </motion.div>
@@ -280,7 +282,7 @@ function RequestsPage() {
               img: otherInfo.img,
               preview: chatData.lastMessage || "No messages yet",
               time: chatData.updatedAt?.toDate ? chatData.updatedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Now',
-              unread: false, // can be implemented later with unread counts
+              unread: chatData.unreadCount?.[user.uid] || 0,
               type: 'dm'
             });
           }
@@ -301,11 +303,10 @@ function RequestsPage() {
     return () => unsubscribeAuth();
   }, []);
 
-  // Badge counts
   const badges = {
     connections: connections.filter(c => c.status === 'pending' && c.unread).length,
     events: events.filter(e => e.status === 'pending' && e.unread).length,
-    messages: messages.filter(m => m.unread).length,
+    messages: messages.reduce((count, m) => count + (m.unread > 0 ? 1 : 0), 0),
     sent: 0,
   };
 
