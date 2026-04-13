@@ -7,8 +7,7 @@ import {
   Heart, MessageCircle, TrendingUp, Navigation, ChevronRight
 } from 'lucide-react';
 
-// Events will be loaded from API — empty until backend is connected
-const ALL_EVENTS = [];
+// Events are loaded dynamically from Firestore
 
 
 const ACTIVITY_FILTERS = ['All', 'Hangout 😌', 'Food Outing 🍽️', 'Travel ✈️', 'Shopping 🛍️', 'Walk 🚶', 'Exploration 🗺️'];
@@ -153,11 +152,56 @@ export default function ExploreEvents() {
   const [activityFilter, setActivityFilter] = useState('All');
   const [joiningEvent, setJoiningEvent] = useState(null);
 
-  // 1. Exclude events created by the current user
-  // 2. Apply search + activity filters
-  const filtered = ALL_EVENTS.filter(ev => {
-    const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
-      ev.location.toLowerCase().includes(search.toLowerCase());
+  const [allEvents, setAllEvents] = useState([]);
+
+  useEffect(() => {
+    import('firebase/firestore').then(({ collection, getDocs, doc, getDoc }) => {
+      import('@/lib/firebase').then(async ({ db }) => {
+        try {
+          const snapshot = await getDocs(collection(db, 'events'));
+          const eventsData = [];
+          for (let document of snapshot.docs) {
+             const data = document.data();
+             const uid = data.createdBy;
+             let creatorInfo = { name: "Unknown", img: "https://ui-avatars.com/api/?name=U" };
+             if (uid) {
+                const uSnap = await getDoc(doc(db, 'users', uid));
+                if (uSnap.exists()) {
+                   const uData = uSnap.data();
+                   if (!uData.isRealUser) continue; 
+                   creatorInfo.name = uData.name || "Unknown";
+                   creatorInfo.img = uData.profilePic || (uData.photos && uData.photos[0]) || "https://ui-avatars.com/api/?name=" + encodeURIComponent(uData.name || "U");
+                }
+             }
+
+             eventsData.push({
+               id: document.id,
+               title: data.title || 'Untitled',
+               description: data.description || '',
+               creator: creatorInfo,
+               location: data.location || 'Global',
+               date: data.date || (data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString() : 'Soon'),
+               slots: data.slots || 10,
+               joined: data.participants?.length || 1,
+               interested: Math.floor(Math.random() * 50) + 10,
+               activities: data.activities || [],
+               imgs: data.images?.length ? data.images : ["https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=800"],
+               trending: Math.random() > 0.7,
+               nearYou: Math.random() > 0.5
+             });
+          }
+          setAllEvents(eventsData);
+        } catch (e) {
+          console.error("Error fetching events:", e);
+        }
+      });
+    });
+  }, []);
+
+  // 1. apply search + activity filters
+  const filtered = allEvents.filter(ev => {
+    const matchSearch = String(ev.title).toLowerCase().includes(search.toLowerCase()) ||
+      String(ev.location).toLowerCase().includes(search.toLowerCase());
     const matchActivity = activityFilter === 'All' || ev.activities.includes(activityFilter);
     return matchSearch && matchActivity;
   });

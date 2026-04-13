@@ -216,24 +216,46 @@ export default function Onboarding() {
       import('firebase/firestore').then(({ doc, getDoc }) => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
           if (!currentUser) {
+            console.log('[Onboarding] No auth user → redirecting to /login');
             router.push('/login');
             return;
           }
-          
+
           try {
             const userRef = doc(db, 'users', currentUser.uid);
             const snap = await getDoc(userRef);
-            
+
             if (snap.exists()) {
-              const data = snap.data();
-              if (data.onboardingComplete) {
+              const userData = snap.data();
+              console.log('[Onboarding] User data:', userData);
+              if (userData.profileCompleted === true) {
+                console.log('[Onboarding] profileCompleted=true → redirecting to /explore');
                 router.push('/explore');
                 return;
               }
+            } else {
+              // Document doesn't exist yet — create it
+              console.log('[Onboarding] No Firestore doc found, creating...');
+              const { setDoc, serverTimestamp } = await import('firebase/firestore');
+              await setDoc(userRef, {
+                uid: currentUser.uid,
+                phone: currentUser.phoneNumber || '',
+                name: '',
+                age: null,
+                city: '',
+                bio: '',
+                interests: [],
+                lifestyle: [],
+                profilePic: '',
+                createdAt: serverTimestamp(),
+                profileCompleted: false,
+                isRealUser: true,
+              });
             }
             setDbUser(currentUser);
           } catch (e) {
-            console.error(e);
+            console.error('[Onboarding] Auth guard error:', e);
+            setDbUser(currentUser); // still show onboarding on error
           } finally {
             setAuthLoading(false);
           }
@@ -280,21 +302,54 @@ export default function Onboarding() {
     if (!auth.currentUser) return;
     setIsSaving(true);
     try {
+      const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+      let profilePicUrl = "";
+
+      // Upload main photo if provided
+      if (data.photos && data.photos[0]) {
+        try {
+          // Convert blob URL to actual Blob for upload
+          const response = await fetch(data.photos[0]);
+          const blob = await response.blob();
+          
+          const storage = getStorage();
+          const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+          await uploadBytes(storageRef, blob);
+          profilePicUrl = await getDownloadURL(storageRef);
+        } catch (e) {
+          console.error("Image upload failed, ignoring...", e);
+        }
+      }
+
       const userRef = doc(db, 'users', auth.currentUser.uid);
+      
+      // Transform their UI data structure to match the spec
+      const extractedBio = data.prompts && data.prompts[0] && data.prompts[0].answer 
+        ? data.prompts[0].answer 
+        : data.bio || '';
+        
+      const extractedLifestyle = Object.values(data.habits).filter(Boolean);
+
       await updateDoc(userRef, {
         name: data.name,
         age: parseInt(data.age) || null,
+        city: data.location,
+        bio: extractedBio,
+        interests: data.interests,
+        lifestyle: extractedLifestyle,
+        profilePic: profilePicUrl,
+        profileCompleted: true,
+        isRealUser: true,
+        
+        // Retain original data as well so the UI doesn't break
         dobDay: data.dobDay,
         dobMonth: data.dobMonth,
         dobYear: data.dobYear,
         heightFt: data.heightFt,
         heightIn: data.heightIn,
         gender: data.gender,
-        location: data.location,
         pincode: data.pincode,
         habits: data.habits,
-        photos: data.photos,
-        interests: data.interests,
         prompts: data.prompts,
         vibes: data.vibes,
         prefGender: data.prefGender,
@@ -303,7 +358,6 @@ export default function Onboarding() {
         isCompanion: data.isCompanion,
         hourlyRate: data.hourlyRate,
         services: data.services,
-        onboardingComplete: true,
       });
 
       // Update local context
@@ -311,11 +365,15 @@ export default function Onboarding() {
         name: data.name,
         age: parseInt(data.age) || null,
         city: data.location,
+        bio: extractedBio,
         interests: data.interests,
+        lifestyle: extractedLifestyle,
+        profilePic: profilePicUrl,
         vibes: data.vibes,
         photos: data.photos,
-        avatar: data.photos[0],
-        onboardingComplete: true
+        avatar: profilePicUrl || data.photos[0],
+        profileCompleted: true,
+        isRealUser: true
       });
 
       router.push('/explore');

@@ -57,8 +57,8 @@ export default function MyProfile() {
         {/* Avatar */}
         <div className="absolute left-5 bottom-0 translate-y-1/2">
           <div className="relative">
-            <img src={profile.avatar} alt={profile.name}
-              className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-xl" />
+            <img src={profile.profilePic || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || "User")}`} alt={profile.name || "User"}
+              className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-xl bg-white" />
             <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function MyProfile() {
         <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible"
           className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-2">About me</p>
-          <p className="text-brand-dark text-sm leading-relaxed">{profile.bio}</p>
+          <p className="text-brand-dark text-sm leading-relaxed">{profile.bio || "No bio added yet"}</p>
         </motion.div>
 
         {/* Quick stats */}
@@ -134,37 +134,28 @@ export default function MyProfile() {
           </div>
         </motion.div>
 
-        {/* Vibes */}
-        <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible"
-          className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-3">My Vibe</p>
-          <div className="flex flex-wrap gap-2">
-            {profile.vibes.map(v => (
-              <span key={v} className="bg-purple-50 text-brand-purple border border-brand-purple/20 text-xs font-bold px-3 py-1.5 rounded-full">{v}</span>
-            ))}
-          </div>
-        </motion.div>
+        {/* Vibes & Companion mode removed for now per spec, or kept conditionally */}
+        {profile.vibes && profile.vibes.length > 0 && (
+          <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible"
+            className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-3">My Vibe</p>
+            <div className="flex flex-wrap gap-2">
+              {profile.vibes.map(v => (
+                <span key={v} className="bg-purple-50 text-brand-purple border border-brand-purple/20 text-xs font-bold px-3 py-1.5 rounded-full">{v}</span>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
-        {/* Lifestyle grid */}
+        {/* Lifestyle array */}
         <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
           <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-3 px-1">Lifestyle</p>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: Music, label: 'Music', value: profile.lifestyle.music },
-              { icon: Coffee, label: 'Drinks', value: profile.lifestyle.drink },
-              { icon: Heart, label: 'Looking for', value: profile.lifestyle.lookingFor },
-              { icon: Sparkles, label: 'Personality', value: profile.lifestyle.personality },
-            ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-center gap-3 bg-white rounded-2xl p-3 border border-gray-100 shadow-sm">
-                <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                  <Icon size={16} className="text-brand-purple" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-brand-gray font-medium">{label}</p>
-                  <p className="text-xs font-bold text-brand-dark">{value}</p>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            {profile.lifestyle && profile.lifestyle.length > 0 ? profile.lifestyle.map((item, idx) => (
+              <span key={idx} className="bg-white rounded-2xl px-4 py-2 border border-gray-100 shadow-sm text-brand-dark text-sm font-bold">
+                {item}
+              </span>
+            )) : <span className="text-brand-gray text-sm italic">No lifestyle preferences added yet</span>}
           </div>
         </motion.div>
 
@@ -184,16 +175,19 @@ export default function MyProfile() {
           </motion.div>
         )}
 
-        {/* Photos */}
-        {profile.photos.length > 0 && (
+        {/* Photos grid */}
+        {profile.photos && profile.photos.length > 0 && (
           <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible">
             <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-3 px-1">Photos</p>
             <div className="grid grid-cols-3 gap-2">
-              {profile.photos.map((p, i) => (
-                <div key={i} className="aspect-square rounded-2xl overflow-hidden shadow-sm">
-                  <img src={p} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                </div>
-              ))}
+              {profile.photos.map((p, i) => {
+                if(!p) return null;
+                return (
+                  <div key={i} className="aspect-square rounded-2xl overflow-hidden shadow-sm bg-gray-100">
+                    <img src={p} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  </div>
+                );
+              })}
               <Link href="/profile/me/edit"
                 className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 text-brand-gray hover:border-brand-purple hover:text-brand-purple transition-colors">
                 <Camera size={20} />

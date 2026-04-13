@@ -17,13 +17,31 @@ export default function Login() {
   const [resendTimer, setResendTimer] = useState(0);
   const otpRefs = useRef([]);
   const router = useRouter();
-  const { login, isLoggedIn } = useProfile();
+  const { login, isLoggedIn, profile } = useProfile();
 
   useEffect(() => {
     if (isLoggedIn) {
-      router.replace('/explore');
+      if (profile.profileCompleted === true) {
+        router.replace('/explore');
+      } else {
+        router.replace('/onboarding');
+      }
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, profile.profileCompleted, router]);
+
+  // Cleanup reCAPTCHA on unmount to prevent "element has been removed" errors
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.error('Error clearing recaptcha', e);
+        }
+        window.recaptchaVerifier = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (resendTimer <= 0) return;
@@ -32,7 +50,18 @@ export default function Login() {
   }, [resendTimer]);
 
   const setupRecaptcha = () => {
-    if (typeof window !== "undefined" && !window.recaptchaVerifier) {
+    if (typeof window !== 'undefined') {
+      // Always clean up existing verifier to avoid detached DOM node issues
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
+        window.recaptchaVerifier = null;
+      }
+      
+      // Look for any left-over recaptcha iframes/containers and wipe them
+      document.getElementById('recaptcha-container').innerHTML = '';
+
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         'recaptcha-container',
@@ -79,39 +108,47 @@ export default function Login() {
     try {
       const authResult = await window.confirmationResult.confirm(code);
       const user = authResult.user;
-      
+      console.log('[Login] OTP verified. UID:', user.uid);
+
       const result = await createOrGetUser(user);
-      
+      console.log('[Login] createOrGetUser result:', result);
+
       if (result.isNew) {
+        console.log('[Login] New user → redirecting to /onboarding');
         login({
           uid: user.uid,
           phone: user.phoneNumber,
           name: '',
           avatar: null,
-          onboardingComplete: false
+          profilePic: '',
+          profileCompleted: false,
+          isRealUser: true
         });
-
         router.push('/onboarding');
       } else {
-        // Existing user -> check onboarding
         const userData = result.data;
-        
+        console.log('[Login] Existing user, profileCompleted:', userData.profileCompleted);
+
         login({
           uid: user.uid,
           phone: user.phoneNumber,
           name: userData.name || '',
-          avatar: userData.photos?.[0] || null,
-          onboardingComplete: userData.onboardingCompleted
+          avatar: userData.profilePic || null,
+          profilePic: userData.profilePic || '',
+          profileCompleted: userData.profileCompleted === true,
+          isRealUser: userData.isRealUser ?? true
         });
 
-        if (!userData.onboardingCompleted) {
-          router.push('/onboarding');
-        } else {
+        if (userData.profileCompleted === true) {
+          console.log('[Login] profileCompleted=true → /explore');
           router.push('/explore');
+        } else {
+          console.log('[Login] profileCompleted=false → /onboarding');
+          router.push('/onboarding');
         }
       }
     } catch (err) {
-      console.error('Firebase OTP Verify Error:', err);
+      console.error('[Login] Firebase OTP Verify Error:', err);
       const errCode = err.code || err.message || '';
       setError(
         errCode.includes('invalid-verification-code')

@@ -6,15 +6,20 @@ import { auth } from '@/lib/firebase';
 
 // Empty profile template — no hardcoded personal data
 const EMPTY_PROFILE = {
-  name: '', age: '', dobDay: '', dobMonth: '', dobYear: '', heightFt: '', heightIn: '', gender: '', location: '', pincode: '',
+  uid: '',
+  name: '', age: '', dobDay: '', dobMonth: '', dobYear: '', heightFt: '', heightIn: '', gender: '', location: '', pincode: '', city: '', bio: '',
   habits: { smoking: '', drinking: '', activity: '', sleep: '', social: '' },
   photos: [null, null, null, null, null, null],
   interests: [],
+  lifestyle: [],
+  profilePic: '',
   prompts: [],
   vibes: [], prefGender: '', prefAge: 25, prefDist: 15,
   isCompanion: false,
   hourlyRate: '',
-  services: []
+  services: [],
+  profileCompleted: false,
+  isRealUser: false
 };
 
 const ProfileContext = createContext(null);
@@ -34,24 +39,30 @@ export function ProfileProvider({ children }) {
           const { doc, getDoc } = await import('firebase/firestore');
           const { db } = await import('@/lib/firebase');
           const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-          
+
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            setProfile(userData);
-            localStorage.setItem('fwm_user', JSON.stringify(userData));
+            console.log('[ProfileContext] Loaded user from Firestore:', userData);
+            // Merge Firestore data into profile — keep uid always
+            const merged = { ...EMPTY_PROFILE, ...userData, uid: firebaseUser.uid };
+            setProfile(merged);
+            localStorage.setItem('fwm_user', JSON.stringify(merged));
           } else {
-            // New user or no doc yet
-            const basic = { ...EMPTY_PROFILE, phone: firebaseUser.phoneNumber || '' };
+            // No doc yet — only store UID and phone
+            const basic = { ...EMPTY_PROFILE, uid: firebaseUser.uid, phone: firebaseUser.phoneNumber || '' };
             setProfile(basic);
             localStorage.setItem('fwm_user', JSON.stringify(basic));
           }
         } catch (e) {
-          console.error("Firestore sync error:", e);
-          // Fallback to local storage if firestore fails
+          console.error('[ProfileContext] Firestore sync error:', e);
+          // Fallback to localStorage
           const savedUser = localStorage.getItem('fwm_user');
-          if (savedUser) setProfile(JSON.parse(savedUser));
+          if (savedUser) {
+            try { setProfile(JSON.parse(savedUser)); } catch (_) {}
+          }
         }
       } else {
+        console.log('[ProfileContext] No user — clearing state');
         setIsLoggedIn(false);
         setProfile(EMPTY_PROFILE);
       }
@@ -95,7 +106,7 @@ export function ProfileProvider({ children }) {
   if (!hydrated) return null;
 
   return (
-    <ProfileContext.Provider value={{ profile, updateProfile, isLoggedIn, login, logout }}>
+    <ProfileContext.Provider value={{ profile, updateProfile, isLoggedIn, hydrated, login, logout }}>
       {children}
     </ProfileContext.Provider>
   );

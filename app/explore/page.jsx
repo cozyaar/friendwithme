@@ -22,36 +22,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Profiles will be loaded from backend — empty until API is connected
-const ALL_PROFILES = [
-  { 
-    id: 'p1', name: "Ananya", age: 23, city: "Bangalore", price: 1500, match: 98, rating: 4.9, reviews: 124, verified: true,
-    vibes: ["Chill", "Foodie", "Travel"], services: ["Coffee & Chat", "Hanging Out"],
-    bio: "Passionate about startup culture and great filter coffee. Let's explore the best cafes in Indiranagar!",
-    interests: ["Reading", "Yoga", "Podcasts"],
-    habits: { smoking: "Non-smoker", drinking: "Socially", activity: "Active", sleep: "Early bird" },
-    images: ["/images/companion_1.png", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800"],
-    lat: 12.9716, lng: 77.5946
-  },
-  { 
-    id: 'p2', name: "Rohan", age: 26, city: "Mumbai", price: 2000, match: 92, rating: 4.8, reviews: 89, verified: true,
-    vibes: ["Party", "Travel"], services: ["Event Plus-One", "City Guide"],
-    bio: "Weekend road tripper and amateur photographer. I know all the hidden spots at Marine Drive.",
-    interests: ["Photography", "Hiking", "Techno"],
-    habits: { smoking: "Non-smoker", drinking: "Socially", activity: "Very Active", sleep: "Night owl" },
-    images: ["/images/companion_2.png", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"],
-    lat: 19.0760, lng: 72.8777
-  },
-  { 
-    id: 'p3', name: "Ishani", age: 22, city: "Delhi", price: 1200, match: 88, rating: 4.7, reviews: 42, verified: false,
-    vibes: ["Intellectual", "Foodie"], services: ["Study Partner", "Casual Walk"],
-    bio: "History buff and momo enthusiast. Can talk for hours about ancient architecture.",
-    interests: ["History", "Painting", "Chess"],
-    habits: { smoking: "Smoker", drinking: "Non-drinker", activity: "Moderate", sleep: "Night owl" },
-    images: ["https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800"],
-    lat: 28.6139, lng: 77.2090
-  }
-];
+// Profiles are fetched from the database and maintained in component state
 
 
 const VIBE_OPTIONS = ['Chill', 'Travel', 'Party', 'Intellectual', 'Fitness', 'Foodie'];
@@ -282,10 +253,66 @@ export default function Explore() {
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
+  const [allProfiles, setAllProfiles] = useState([]);
 
   // Use direct Firebase state to avoid localStorage desyncs
   const [dbUser, setDbUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Fetch Real Users Feature
+  useEffect(() => {
+    if (!dbUser) return;
+    import('firebase/firestore').then(({ collection, query, where, getDocs }) => {
+      import('@/lib/firebase').then(async ({ db }) => {
+        try {
+          const q = query(
+            collection(db, 'users'),
+            where('isRealUser', '==', true),
+            where('profileCompleted', '==', true)
+          );
+          const snap = await getDocs(q);
+          const profilesList = [];
+          snap.forEach(doc => {
+            if (doc.id === dbUser.uid) return; // Skip own profile
+            const d = doc.data();
+            
+            // Map photos Array. If profilePic exists, it should be the first.
+            let userImages = [];
+            if (d.profilePic) userImages.push(d.profilePic);
+            if (d.photos && Array.isArray(d.photos)) {
+                d.photos.forEach(p => { if (p && p !== d.profilePic) userImages.push(p); });
+            }
+            if (userImages.length === 0) userImages.push(`https://ui-avatars.com/api/?name=${encodeURIComponent(d.name || 'User')}`);
+
+            profilesList.push({
+              id: doc.id,
+              name: d.name || 'Unknown',
+              age: d.age || '?',
+              city: d.city || 'Unknown',
+              price: d.hourlyRate || 1000,
+              isCompanion: d.isCompanion || false,
+              match: 99,
+              rating: 5.0,
+              reviews: 0,
+              verified: true,
+              vibes: d.vibes || [],
+              services: d.services || [],
+              bio: d.bio || '',
+              interests: d.interests || [],
+              habits: d.habits || {},
+              images: userImages,
+              lat: 20.5937, 
+              lng: 78.9629,
+              dist: null
+            });
+          });
+          setAllProfiles(profilesList);
+        } catch (err) {
+          console.error("Error fetching explore profiles:", err);
+        }
+      });
+    });
+  }, [dbUser]);
 
   useEffect(() => {
     import('firebase/auth').then(({ onAuthStateChanged }) => {
@@ -303,7 +330,7 @@ export default function Explore() {
               
               if (snap.exists()) {
                 const data = snap.data();
-                if (!data.onboardingComplete) {
+                if (!data.profileCompleted) {
                   router.push('/onboarding');
                   return;
                 }
@@ -354,12 +381,12 @@ export default function Explore() {
 
   // Filtered + sorted profiles
   const filteredProfiles = useMemo(() => {
-    let profiles = ALL_PROFILES.map(p => {
+    let profiles = allProfiles.map(p => {
       let dist = null;
       if (userLoc) dist = haversine(userLoc.lat, userLoc.lng, p.lat, p.lng);
       else if (manualCity) dist = haversine(
-        ALL_PROFILES.find(x => x.city === manualCity)?.lat || p.lat,
-        ALL_PROFILES.find(x => x.city === manualCity)?.lng || p.lng,
+        allProfiles.find(x => x.city === manualCity)?.lat || p.lat,
+        allProfiles.find(x => x.city === manualCity)?.lng || p.lng,
         p.lat, p.lng
       );
       return { ...p, dist };
@@ -414,7 +441,7 @@ export default function Explore() {
     else if (userLoc || manualCity) profiles.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
 
     return profiles;
-  }, [userLoc, manualCity, filters, searchQuery]);
+  }, [userLoc, manualCity, filters, searchQuery, allProfiles]);
 
   // Reset index when filters change
   useEffect(() => { setCurrentIndex(0); setImageIndex(0); }, [filters, searchQuery]);

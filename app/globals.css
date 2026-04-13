@@ -4,20 +4,139 @@
 
 @layer base {
   body {
-    @apply bg-brand-light text-brand-dark overflow-x-hidden min-h-screen selection:bg-brand-pink/30;
+    background: #0B0B0B !important;
+    color: #F5F5F5 !important;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+  
+  * {
+    transition: all 0.25s ease;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-sm;
+    background: #111111 !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(212, 175, 55, 0.15) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
   }
   
-  .glass-dark {
-    @apply bg-black/60 backdrop-blur-xl border border-white/10 shadow-lg text-white;
+  .glass:hover {
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.2) !important;
   }
 
   .text-brand-gradient {
-    @apply bg-brand-gradient bg-clip-text text-transparent;
+    background: linear-gradient(135deg, #D4AF37, #C9A227) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
   }
+}
+
+/* =========================================
+   LUXURY THEME GLOBAL OVERRIDES
+   ========================================= */
+
+/* BACKGROUNDS & CONTAINERS */
+.bg-brand-light, .bg-gray-50, .bg-gray-50\/50, .bg-white\/50, .bg-soft-gradient, .bg-brand-blue\/20, .bg-brand-pink\/20 {
+  background: #0B0B0B !important;
+}
+
+.bg-white, .glass-dark, .modal, .profile-card, .card, .bg-gray-100, .bg-gray-200 {
+  background: #000000 !important;
+  border: 1px solid rgba(212, 175, 55, 0.15) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
+  color: #F5F5F5 !important;
+}
+
+.bg-white:hover, .glass-dark:hover, .modal:hover, .profile-card:hover, .card:hover {
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.2) !important;
+}
+
+/* TEXT COLORS */
+.text-brand-dark, .text-gray-900, .text-gray-800, .text-black {
+  color: #F5F5F5 !important;
+}
+
+.text-brand-gray, .text-gray-500, .text-gray-600, .text-gray-400, .muted-text {
+  color: #A1A1A1 !important;
+}
+
+.text-brand-purple, .text-brand-blue, .text-brand-pink, .gold-text {
+  color: #D4AF37 !important;
+}
+
+/* BUTTONS & PRIMARY ACCENTS */
+.bg-brand-dark, .bg-brand-purple, .bg-brand-blue, .bg-brand-pink, .btn-primary {
+  background: linear-gradient(135deg, #D4AF37, #C9A227) !important;
+  color: black !important;
+  border: none !important;
+}
+
+/* Make sure text inside gradient buttons is black */
+.bg-brand-dark span, .bg-brand-purple span, .bg-brand-dark svg, .bg-brand-purple svg, .bg-brand-dark p {
+  color: black !important;
+}
+
+.bg-brand-dark:hover, .bg-brand-purple:hover, .bg-brand-blue:hover, .bg-[linear-gradient]:hover, .btn-primary:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.5) !important;
+}
+
+.btn-outline {
+  border: 1px solid #D4AF37 !important;
+  color: #D4AF37 !important;
+  background: transparent !important;
+}
+
+.btn-outline:hover {
+  background: #D4AF37 !important;
+  color: black !important;
+}
+
+/* NAVBAR */
+.navbar, header, nav, .fixed.bottom-0, .border-t {
+  background: #0B0B0B !important;
+  border-color: rgba(212, 175, 55, 0.15) !important;
+}
+
+/* INPUTS & FORMS */
+input, textarea, select {
+  background: #000000 !important;
+  border: 1px solid #2a2a2a !important;
+  color: #F5F5F5 !important;
+  border-radius: 10px !important;
+}
+
+input:focus, textarea:focus {
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3) !important;
+  outline: none !important;
+}
+
+/* BORDERS */
+.border-gray-100, .border-gray-200, .border-white, .border-brand-purple\/20 {
+  border-color: rgba(212, 175, 55, 0.15) !important;
+}
+
+/* EFFECTS */
+.glow {
+  transition: all 0.3s ease;
+}
+
+.glow:hover {
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.4) !important;
+}
+
+.gold-border {
+  border: 1px solid rgba(212, 175, 55, 0.15) !important;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #D4AF37, #C9A227) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }

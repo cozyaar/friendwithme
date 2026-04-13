@@ -14,13 +14,15 @@ function Toggle({ value, onChange, label, description }) {
         {description && <p className="text-xs text-brand-gray mt-0.5">{description}</p>}
       </div>
       <button
+        type="button"
         onClick={() => onChange(!value)}
-        className={`relative w-12 h-6 rounded-full transition-colors shrink-0 mt-0.5 ${value ? 'bg-brand-purple' : 'bg-gray-200'}`}
+        className={`relative flex items-center p-0.5 w-12 h-6 rounded-full transition-colors shrink-0 mt-0.5 ${value ? 'bg-brand-purple' : 'bg-gray-200'}`}
       >
         <motion.span
-          animate={{ x: value ? 24 : 2 }}
+          initial={false}
+          animate={{ x: value ? 24 : 0 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+          className="block w-5 h-5 bg-white rounded-full shadow-md"
         />
       </button>
     </div>
