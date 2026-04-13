@@ -5,8 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
   Plus, MapPin, CalendarDays, Users, X, Clock,
-  Image as ImageIcon, Check, PartyPopper, Pencil
+  Image as ImageIcon, Check, PartyPopper, Pencil, Loader2
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { db, storage, auth } from "@/lib/firebase";
+import { addDoc, collection, serverTimestamp, updateDoc, doc, getDocs, query, orderBy, where } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { onAuthStateChanged } from "firebase/auth";
 
 const ACTIVITY_CHIPS = ['Hangout 😌', 'Food Outing 🍽️', 'Travel ✈️', 'Shopping 🛍️', 'Walk 🚶', 'Exploration 🗺️', 'Movie 🎬', 'Sports ⚽'];
 const GENDER_PREFS = ['Anyone', 'Only boys', 'Only girls', 'Custom'];
@@ -17,13 +22,136 @@ const GENDER_PREFS = ['Anyone', 'Only boys', 'Only girls', 'Custom'];
 // ─── Shared Create / Edit Modal ─────────────────────────────────
 function EventFormModal({ initialData, onClose, onSave, mode = 'create' }) {
   const [step, setStep] = useState(1);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  
   const [form, setForm] = useState(initialData ?? {
     title: '', location: '', dateFrom: '', dateTo: '', time: '', description: '',
     activities: [], requirements: '', slots: 4, genderPref: 'Anyone',
     boysCount: 2, girlsCount: 2,
   });
 
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) setUserId(user.uid);
+    });
+    return () => unsub();
+  }, []);
+
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleFileChange = (e) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newFiles = Array.from(files);
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+    
+    const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeImage = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async (files) => {
+    if (!files || files.length === 0) {
+      console.log("No files to upload.");
+      return [];
+    }
+    
+    console.log(`Starting upload for ${files.length} files...`);
+    
+    try {
+      const uploadPromises = files.map(async (file, index) => {
+        try {
+          const timestamp = Date.now();
+          const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+          const fileName = `${timestamp}-${safeName}`;
+          const storagePath = `events/${userId}/${fileName}`;
+          const storageRef = ref(storage, storagePath);
+          
+          console.log(`[File ${index}] Uploading to: ${storagePath}`);
+          const snapshot = await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(snapshot.ref);
+          console.log(`[File ${index}] Upload success:`, url);
+          return url;
+        } catch (fileErr) {
+          console.error(`[File ${index}] Individual upload failed:`, fileErr);
+          return null; // Return null for failed individual files
+        }
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      // Filter out any failed uploads
+      return results.filter(url => url !== null);
+    } catch (err) {
+      console.error("Global upload error:", err);
+      throw err;
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!userId) { 
+      alert("Auth error: No User ID found. Please refresh and try again."); 
+      console.error("userId is null during submission");
+      return; 
+    }
+    
+    setIsPublishing(true);
+    console.log("--- SUBMISSION START ---");
+    console.log("Form State:", form);
+    console.log("Selected Files Count:", selectedFiles.length);
+
+    try {
+      // 1. Upload Images
+      const uploadedImageUrls = await uploadImages(selectedFiles);
+      console.log("Final Uploaded URLs Array:", uploadedImageUrls);
+      
+      // 2. Prepare Data (Ensuring strict types for Firestore)
+      const eventData = {
+        title: String(form.title || ""),
+        description: String(form.description || ""),
+        location: String(form.location || ""),
+        startDate: String(form.dateFrom || ""),
+        endDate: String(form.dateTo || form.dateFrom || ""),
+        time: String(form.time || ""),
+        // FIX: Explicitly ensure activities is an array of strings
+        activities: Array.isArray(form.activities) ? [...form.activities] : [], 
+        requirements: String(form.requirements || ""),
+        maxParticipants: Number(form.slots || 1),
+        genderPreference: String(form.genderPref || "Anyone"),
+        boysCount: form.genderPref === 'Custom' ? Number(form.boysCount) : 0,
+        girlsCount: form.genderPref === 'Custom' ? Number(form.girlsCount) : 0,
+        createdBy: String(userId),
+        participants: [String(userId)], 
+        // FIX: Explicitly ensure images is an array of strings
+        images: Array.isArray(uploadedImageUrls) ? [...uploadedImageUrls] : [],
+        updatedAt: serverTimestamp()
+      };
+
+      if (mode === 'create') {
+        eventData.createdAt = serverTimestamp();
+      }
+
+      console.log("Full Event Data to Save:", eventData);
+
+      // 3. Save to Firestore
+      await onSave(eventData);
+      console.log("--- SUBMISSION SUCCESS ---");
+      onClose();
+    } catch (err) {
+      console.error("--- SUBMISSION FAILED ---", err);
+      alert(`Error publishing event: ${err.message || "Unknown error"}`);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
   const toggleActivity = a => setForm(p => ({
     ...p,
     activities: p.activities.includes(a) ? p.activities.filter(x => x !== a) : [...p.activities, a],
@@ -214,10 +342,33 @@ function EventFormModal({ initialData, onClose, onSave, mode = 'create' }) {
               {/* Photo upload */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-brand-gray mb-3">Event Photos (optional)</label>
+                
+                {previews.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {previews.map((url, i) => (
+                      <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden group">
+                        <img src={url} className="w-full h-full object-cover" alt="Preview" />
+                        <button 
+                          onClick={() => removeImage(i)}
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <label className="flex flex-col items-center justify-center gap-2.5 border-2 border-dashed border-gray-200 rounded-2xl p-8 cursor-pointer hover:border-brand-purple/50 hover:bg-brand-purple/5 transition-all">
                   <ImageIcon size={28} className="text-gray-400" />
                   <span className="text-sm text-brand-gray font-medium">Click to upload photos</span>
-                  <input type="file" accept="image/*" multiple className="hidden" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleFileChange}
+                  />
                 </label>
               </div>
 
@@ -258,10 +409,15 @@ function EventFormModal({ initialData, onClose, onSave, mode = 'create' }) {
             </motion.button>
           ) : (
             <motion.button whileTap={{ scale: 0.97 }}
-              onClick={() => { onSave(form); onClose(); }}
-              className="flex-1 py-3.5 bg-brand-dark text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 text-sm"
+              onClick={handleSubmit}
+              disabled={isPublishing}
+              className="flex-1 py-3.5 bg-brand-dark text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 text-sm disabled:opacity-70"
             >
-              <PartyPopper size={18} /> {mode === 'create' ? 'Publish Event' : 'Save Changes'}
+              {isPublishing ? (
+                <><Loader2 size={18} className="animate-spin" /> Publishing...</>
+              ) : (
+                <><PartyPopper size={18} /> {mode === 'create' ? 'Publish Event' : 'Save Changes'}</>
+              )}
             </motion.button>
           )}
         </div>
@@ -272,56 +428,72 @@ function EventFormModal({ initialData, onClose, onSave, mode = 'create' }) {
 
 // ─── My Events page ──────────────────────────────────────────────
 export default function MyEvents() {
-  const [events, setEvents] = useState([]); // Will load from API
+  const router = useRouter();
+  const [events, setEvents] = useState([]); 
   const [showCreate, setShowCreate] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [toast, setToast] = useState('');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [user, setUser] = useState(null);
 
-  // Load from localStorage on mount
+  // Sync auth
   useEffect(() => {
-    const savedEvents = localStorage.getItem('my_saved_events');
-    if (savedEvents) {
-      try {
-        setEvents(JSON.parse(savedEvents));
-      } catch (e) {
-        console.error('Failed to parse saved events', e);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) {
+        setUser(u);
+      } else {
+        router.push('/login');
       }
-    }
-    setIsLoaded(true);
-  }, []);
+    });
+    return () => unsub();
+  }, [router]);
 
-  // Save to localStorage whenever events change
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('my_saved_events', JSON.stringify(events));
+  // Load from Firestore
+  const fetchMyEvents = async () => {
+    if (!user) return;
+    try {
+      const q = query(
+        collection(db, "events"), 
+        where("createdBy", "==", user.uid),
+        orderBy("createdAt", "desc")
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setEvents(list);
+    } catch (e) {
+      console.error("fetchMyEvents error:", e);
     }
-  }, [events, isLoaded]);
+  };
+
+  useEffect(() => {
+    if (user) fetchMyEvents();
+  }, [user]);
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
 
-  const handleCreated = (form) => {
-    setEvents(prev => [{
-      id: `e${Date.now()}`, title: form.title, location: form.location,
-      date: form.dateFrom, dateTo: form.dateTo, time: form.time, slots: form.slots, joined: 0,
-      status: 'Open', activities: form.activities, description: form.description,
-      genderPref: form.genderPref, requirements: form.requirements,
-      img: '/images/companion_1.png',
-    }, ...prev]);
-    showToast('Event published! 🎉');
+  const handleCreated = async (eventData) => {
+    try {
+      await addDoc(collection(db, "events"), eventData);
+      showToast('Event published! 🎉');
+      fetchMyEvents(); // Refresh list
+    } catch (e) {
+      console.error("handleCreated error:", e);
+    }
   };
 
-  const handleEdited = (form) => {
-    setEvents(prev => prev.map(ev =>
-      ev.id === editingEvent.id
-        ? { ...ev, ...form, status: ev.joined >= form.slots ? 'Full' : 'Open' }
-        : ev
-    ));
-    setEditingEvent(null);
-    showToast('Event updated! ✅');
+  const handleEdited = async (eventData) => {
+    if (!editingEvent?.id) return;
+    try {
+      await updateDoc(doc(db, "events", editingEvent.id), eventData);
+      setEditingEvent(null);
+      showToast('Event updated! ✅');
+      fetchMyEvents(); // Refresh list
+    } catch (e) {
+      console.error("handleEdited error:", e);
+    }
   };
 
   return (
@@ -367,10 +539,13 @@ export default function MyEvents() {
               >
                 {/* Cover image */}
                 <div className="relative h-40 overflow-hidden">
-                  <Image unoptimized width={100} height={100}  src={ev.img} alt={ev.title} className="w-full h-full object-cover"  />
+                  <Image unoptimized width={100} height={100}  
+                    src={ev.images?.[0] || '/images/companion_1.png'} 
+                    alt={ev.title} className="w-full h-full object-cover"  
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  <span className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold ${ev.status === 'Open' ? 'bg-green-500 text-white' : 'bg-gray-700/80 text-white'}`}>
-                    {ev.status === 'Open' ? '● Open' : '✕ Full'}
+                  <span className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold ${(ev.participants?.length || 0) < (ev.maxParticipants || 1) ? 'bg-green-500 text-white' : 'bg-gray-700/80 text-white'}`}>
+                    {(ev.participants?.length || 0) < (ev.maxParticipants || 1) ? '● Open' : '✕ Full'}
                   </span>
                 </div>
 
@@ -381,20 +556,20 @@ export default function MyEvents() {
                     <span className="flex items-center gap-1"><MapPin size={11} /> {ev.location}</span>
                     <span className="flex items-center gap-1">
                       <CalendarDays size={11} />
-                      {ev.date}{ev.dateTo && ev.dateTo !== ev.date ? ` → ${ev.dateTo}` : ''}
+                      {ev.startDate}{ev.endDate && ev.endDate !== ev.startDate ? ` → ${ev.endDate}` : ''}
                     </span>
-                    <span className="flex items-center gap-1"><Users size={11} /> {ev.joined}/{ev.slots}</span>
+                    <span className="flex items-center gap-1"><Users size={11} /> {ev.participants?.length || 0}/{ev.maxParticipants}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 mb-3">
-                    {ev.activities.slice(0, 3).map(a => (
+                    {ev.activities?.slice(0, 3).map(a => (
                       <span key={a} className="bg-gray-100 text-brand-dark px-2.5 py-1 rounded-full text-xs font-bold">{a}</span>
                     ))}
                   </div>
 
                   {/* Slot bar */}
                   <div className="h-1.5 bg-gray-100 rounded-full mb-4">
-                    <div className="h-full bg-brand-dark rounded-full" style={{ width: `${(ev.joined / ev.slots) * 100}%` }} />
+                    <div className="h-full bg-brand-dark rounded-full" style={{ width: `${((ev.participants?.length || 0) / (ev.maxParticipants || 1)) * 100}%` }} />
                   </div>
 
                   {/* Actions */}

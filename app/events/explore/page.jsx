@@ -7,8 +7,9 @@ import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'fireb
 import { db } from '@/lib/firebase';
 import {
   MapPin, CalendarDays, Users, Search, X,
-  Heart, MessageCircle, TrendingUp, Navigation, ChevronRight
+  Heart, MessageCircle, TrendingUp, Navigation, ChevronRight, Loader2
 } from 'lucide-react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 // Events are loaded dynamically from Firestore
 
@@ -157,15 +158,32 @@ export default function ExploreEvents() {
 
   const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+
+  // Sync auth
+  useEffect(() => {
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        setLoading(true);
         const snapshot = await getDocs(collection(db, 'events'));
         const eventsData = [];
+        
         for (let document of snapshot.docs) {
            const data = document.data();
            const uid = data.createdBy;
+           
+           // FIX: Filter for Join Events -> Discovery should show all events EXCEPT mine
+           const isCreator = user && uid === user.uid;
+           if (isCreator) continue;
+
            let creatorInfo = { name: "Unknown", img: "https://ui-avatars.com/api/?name=U" };
            if (uid) {
               const uSnap = await getDoc(doc(db, 'users', uid));
@@ -203,27 +221,8 @@ export default function ExploreEvents() {
         setLoading(false);
       }
     };
-    fetchEvents();
-  }, []);
-
-  const createEvent = async () => {
-    try {
-      await addDoc(collection(db, "events"), {
-        title: "Test Event",
-        city: "Chennai",
-        location: "Marina Beach",
-        createdBy: "testUser",
-        participants: ["testUser"],
-        maxParticipants: 10,
-        price: 0,
-        activities: ["Hangout 😌"],
-        createdAt: serverTimestamp()
-      });
-      alert("Event created successfully! Please refresh.");
-    } catch (error) {
-      console.error("Error creating event:", error);
-    }
-  };
+    if (user !== undefined) fetchEvents();
+  }, [user]);
 
   // 1. apply search + activity filters
   const filtered = allEvents.filter(ev => {
@@ -257,7 +256,7 @@ export default function ExploreEvents() {
           {search && <button onClick={() => setSearch('')}><X size={14} className="text-gray-400" /></button>}
         </div>
 
-        {/* Activity chips & Test Button */}
+        {/* Activity chips */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="flex gap-2 flex-wrap">
             {ACTIVITY_FILTERS.map(f => (
@@ -269,9 +268,6 @@ export default function ExploreEvents() {
               </motion.button>
             ))}
           </div>
-          <button onClick={createEvent} className="px-4 py-2 bg-[#D4AF37] text-white font-bold rounded-xl shadow-md hover:opacity-90 text-sm">
-            Create Test Event
-          </button>
         </div>
 
         {/* Flat event grid — NO duplicate sections */}
