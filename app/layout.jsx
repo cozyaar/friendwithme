@@ -2,6 +2,8 @@ import { Outfit } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import { ProfileProvider } from '@/context/ProfileContext';
+import MainContent from '@/components/MainContent';
+import { Suspense } from 'react';
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 
@@ -21,9 +23,9 @@ export default function RootLayout({ children }) {
 
         <ProfileProvider>
           <Navbar />
-          <main className="pt-24 pb-20 px-4 md:px-8 max-w-7xl mx-auto min-h-screen relative z-0">
-            {children}
-          </main>
+          <Suspense fallback={null}>
+            <MainContent>{children}</MainContent>
+          </Suspense>
         </ProfileProvider>
       </body>
     </html>

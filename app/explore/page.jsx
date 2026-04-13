@@ -10,9 +10,11 @@ import {
   collection, query, where, getDocs, addDoc, serverTimestamp,
   doc, setDoc, getDoc 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/context/ProfileContext';
+import Image from 'next/image';
 
 // ─── Haversine formula ───────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
@@ -282,96 +284,90 @@ export default function Explore() {
   // Fetch Real Users Feature
   useEffect(() => {
     if (!dbUser) return;
-    import('firebase/firestore').then(({ collection, query, where, getDocs }) => {
-      import('@/lib/firebase').then(async ({ db }) => {
-        try {
-          const q = query(
-            collection(db, 'users'),
-            where('isRealUser', '==', true),
-            where('profileCompleted', '==', true)
-          );
-          const snap = await getDocs(q);
-          const profilesList = [];
-          snap.forEach(doc => {
-            if (doc.id === dbUser.uid) return; // Skip own profile
-            const d = doc.data();
-            
-            // Map photos Array. If profilePic exists, it should be the first.
-            let userImages = [];
-            if (d.profilePic) userImages.push(d.profilePic);
-            if (d.photos && Array.isArray(d.photos)) {
-                d.photos.forEach(p => { if (p && p !== d.profilePic) userImages.push(p); });
-            }
-            if (userImages.length === 0) userImages.push(`https://ui-avatars.com/api/?name=${encodeURIComponent(d.name || 'User')}`);
+    
+    const fetchProfiles = async () => {
+      try {
+        const q = query(
+          collection(db, 'users'),
+          where('isRealUser', '==', true),
+          where('profileCompleted', '==', true)
+        );
+        const snap = await getDocs(q);
+        const profilesList = [];
+        snap.forEach(doc => {
+          if (doc.id === dbUser.uid) return; // Skip own profile
+          const d = doc.data();
+          
+          // Map photos Array. If profilePic exists, it should be the first.
+          let userImages = [];
+          if (d.profilePic) userImages.push(d.profilePic);
+          if (d.photos && Array.isArray(d.photos)) {
+              d.photos.forEach(p => { if (p && p !== d.profilePic) userImages.push(p); });
+          }
+          if (userImages.length === 0) userImages.push(`https://ui-avatars.com/api/?name=${encodeURIComponent(d.name || 'User')}`);
 
-            profilesList.push({
-              id: doc.id,
-              name: d.name || 'Unknown',
-              age: d.age || '?',
-              city: d.city || 'Unknown',
-              price: d.hourlyRate || 1000,
-              isCompanion: d.isCompanion || false,
-              match: 99,
-              rating: 5.0,
-              reviews: 0,
-              verified: true,
-              vibes: d.vibes || [],
-              services: d.services || [],
-              bio: d.bio || '',
-              interests: d.interests || [],
-              habits: d.habits || {},
-              images: userImages,
-              lat: 20.5937, 
-              lng: 78.9629,
-              dist: null
-            });
+          profilesList.push({
+            id: doc.id,
+            name: d.name || 'Unknown',
+            age: d.age || '?',
+            city: d.city || 'Unknown',
+            price: d.hourlyRate || 1000,
+            isCompanion: d.isCompanion || false,
+            match: 99,
+            rating: 5.0,
+            reviews: 0,
+            verified: true,
+            vibes: d.vibes || [],
+            services: d.services || [],
+            bio: d.bio || '',
+            interests: d.interests || [],
+            habits: d.habits || {},
+            images: userImages,
+            lat: 20.5937, 
+            lng: 78.9629,
+            dist: null
           });
-          setAllProfiles(profilesList);
-        } catch (err) {
-          console.error("Error fetching explore profiles:", err);
-        }
-      });
-    });
+        });
+        setAllProfiles(profilesList);
+      } catch (err) {
+        console.error("Error fetching explore profiles:", err);
+      }
+    };
+
+    fetchProfiles();
   }, [dbUser]);
 
   useEffect(() => {
-    import('firebase/auth').then(({ onAuthStateChanged }) => {
-      import('firebase/firestore').then(({ doc, getDoc }) => {
-        import('@/lib/firebase').then(({ auth, db }) => {
-          const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (!currentUser) {
-              router.push('/login');
-              return;
-            }
-            
-            try {
-              const userRef = doc(db, 'users', currentUser.uid);
-              const snap = await getDoc(userRef);
-              
-              if (snap.exists()) {
-                const data = snap.data();
-                if (!data.profileCompleted) {
-                  router.push('/onboarding');
-                  return;
-                }
-              } else {
-                router.push('/onboarding');
-                return;
-              }
-              
-              setDbUser(currentUser);
-            } catch (e) {
-              console.error(e);
-            } finally {
-              setAuthLoading(false);
-            }
-          });
-
-          return () => unsubscribe();
-        });
-      });
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push('/login');
+      } else {
+        setDbUser(user);
+        // We set loading to false here to allow the UI to render.
+        // The profile check can happen in the background.
+        setAuthLoading(false);
+      }
     });
+
+    return () => unsubscribe();
   }, [router]);
+
+  // Separate effect for profile completion check
+  useEffect(() => {
+    if (!dbUser) return;
+    
+    const checkProfile = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', dbUser.uid));
+        if (!snap.exists() || !snap.data().profileCompleted) {
+          router.push('/onboarding');
+        }
+      } catch (e) {
+        console.error("Profile check error:", e);
+      }
+    };
+    checkProfile();
+  }, [dbUser, router]);
 
   // Location hooks already moved to top 
   // requestLocation hook logic moves here
@@ -514,7 +510,7 @@ export default function Explore() {
         // Set match info for UI feedback
         setMatchInfo({ 
           name: profile.name,
-          img: profile.images[0],
+          img: profile.images?.[0] || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`,
           chatId: chatId 
         });
         setShowMatch(true);
@@ -601,16 +597,18 @@ export default function Explore() {
     filters.bestMatch,
   ].filter(Boolean).length;
 
-  const nextImage = () => {
+  const nextImage = (e) => {
+    e?.stopPropagation();
     if (profile && imageIndex < profile.images.length - 1) setImageIndex(p => p + 1);
   };
-  const prevImage = () => {
+  const prevImage = (e) => {
+    e?.stopPropagation();
     if (profile && imageIndex > 0) setImageIndex(p => p - 1);
   };
 
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col bg-white relative overflow-hidden">
+    <div className="w-full h-[calc(100dvh-80px)] md:h-[calc(100vh-80px)] flex flex-col bg-white relative overflow-hidden -mt-20 md:mt-0">
 
       {/* ── Top Bar ── */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex gap-3 items-center">
