@@ -176,19 +176,16 @@ export default function Onboarding() {
   const [authLoading, setAuthLoading] = useState(true);
 
   const [data, setData] = useState({
-    name: 'Alex Developer', age: '24', dobDay: '12', dobMonth: '05', dobYear: '2000', heightFt: '5', heightIn: '10', gender: 'Male', location: 'Bangalore, Karnataka', pincode: '560001',
-    habits: { smoking: 'Non-smoker', drinking: 'Social drinker', activity: 'Active', sleep: 'Night owl 🌙', social: 'Ambivert' },
+    name: '', age: '', dobDay: '', dobMonth: '', dobYear: '',
+    heightFt: '', heightIn: '', gender: '', location: '', pincode: '',
+    habits: { smoking: '', drinking: '', activity: '', sleep: '', social: '' },
     photos: [null, null, null, null, null, null],
-    interests: ['Coffee ☕', 'Gym', 'Anime', 'Travel Buddy ✈️', 'Movies'],
-    prompts: [
-      { question: "I'm known for...", answer: "Writing extremely clean React code at 2 AM." },
-      { question: "A random fact about me...", answer: "I build awesome Next.js interfaces playfully." },
-      { question: "My perfect day looks like...", answer: "A little bit of coding and lots of coffee." }
-    ],
-    vibes: ['Coffee Date ☕', 'Weekend Getaway 🌄', 'Movie Partner 🎬'], prefGender: 'Female', prefAge: 25, prefDist: 15,
-    isCompanion: true,
-    hourlyRate: 1500,
-    services: ['Hanging Out 😌', 'City Exploration 🗺️', 'Coffee & Chat ☕']
+    interests: [],
+    prompts: [],
+    vibes: [], prefGender: '', prefAge: 25, prefDist: 15,
+    isCompanion: false,
+    hourlyRate: '',
+    services: []
   });
 
   const [interestQuery, setInterestQuery] = useState("");
@@ -228,10 +225,42 @@ export default function Onboarding() {
             if (snap.exists()) {
               const userData = snap.data();
               console.log('[Onboarding] User data:', userData);
+
               if (userData.profileCompleted === true) {
                 console.log('[Onboarding] profileCompleted=true → redirecting to /explore');
                 router.push('/explore');
                 return;
+              }
+
+              // Preload any previously saved onboarding data
+              setData(prev => ({
+                ...prev,
+                name: userData.name || '',
+                age: userData.age ? String(userData.age) : '',
+                dobDay: userData.dobDay || '',
+                dobMonth: userData.dobMonth || '',
+                dobYear: userData.dobYear || '',
+                heightFt: userData.heightFt || '',
+                heightIn: userData.heightIn || '',
+                gender: userData.gender || '',
+                location: userData.city || userData.location || '',
+                pincode: userData.pincode || '',
+                habits: userData.habits || { smoking: '', drinking: '', activity: '', sleep: '', social: '' },
+                photos: userData.photos || [null, null, null, null, null, null],
+                interests: userData.interests || [],
+                prompts: userData.prompts || [],
+                vibes: userData.vibes || [],
+                prefGender: userData.prefGender || '',
+                prefAge: userData.prefAge || 25,
+                prefDist: userData.prefDist || 15,
+                isCompanion: userData.isCompanion || false,
+                hourlyRate: userData.hourlyRate || '',
+                services: userData.services || [],
+              }));
+
+              // Resume from saved step if available
+              if (userData.currentStep && userData.currentStep > 1) {
+                setStep(userData.currentStep);
               }
             } else {
               // Document doesn't exist yet — create it
@@ -292,12 +321,41 @@ export default function Onboarding() {
     exit: { x: -40, opacity: 0, transition: { duration: 0.2 } }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 5 && promptStage === 'select') {
       setPromptStage('answer');
-    } else {
-      setStep(prev => Math.min(prev + 1, totalSteps));
+      return;
     }
+    // Save current step progress to Firestore so user can resume
+    if (auth.currentUser) {
+      try {
+        const { updateDoc } = await import('firebase/firestore');
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const nextStep = Math.min(step + 1, totalSteps);
+        await updateDoc(userRef, {
+          currentStep: nextStep,
+          // Save step-relevant data
+          ...(step === 1 && {
+            name: data.name,
+            age: parseInt(data.age) || null,
+            dobDay: data.dobDay, dobMonth: data.dobMonth, dobYear: data.dobYear,
+            heightFt: data.heightFt, heightIn: data.heightIn,
+            gender: data.gender,
+            city: data.location,
+            pincode: data.pincode,
+          }),
+          ...(step === 2 && { habits: data.habits, lifestyle: Object.values(data.habits).filter(Boolean) }),
+          ...(step === 4 && { interests: data.interests }),
+          ...(step === 5 && { prompts: data.prompts }),
+          ...(step === 6 && { vibes: data.vibes }),
+          ...(step === 7 && { isCompanion: data.isCompanion, hourlyRate: data.hourlyRate, services: data.services }),
+        });
+        console.log(`[Onboarding] Step ${step} saved to Firestore`);
+      } catch (e) {
+        console.error('[Onboarding] Step save error:', e);
+      }
+    }
+    setStep(prev => Math.min(prev + 1, totalSteps));
   };
 
   const handleBack = () => {
@@ -307,6 +365,7 @@ export default function Onboarding() {
       setStep(prev => Math.max(prev - 1, 1));
     }
   };
+
   const handleFinish = async () => {
     if (!auth.currentUser) return;
     setIsSaving(true);
@@ -314,80 +373,68 @@ export default function Onboarding() {
       const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
       let profilePicUrl = "";
 
-      // Upload main photo if provided
-      if (data.photos && data.photos[0]) {
+      // Upload main photo if provided (must be a blob/object URL from file input)
+      if (data.photos && data.photos[0] && data.photos[0].startsWith('blob:')) {
         try {
-          // Convert blob URL to actual Blob for upload
           const response = await fetch(data.photos[0]);
           const blob = await response.blob();
-          
           const storage = getStorage();
           const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
           await uploadBytes(storageRef, blob);
           profilePicUrl = await getDownloadURL(storageRef);
+          console.log('[Onboarding] Photo uploaded:', profilePicUrl);
         } catch (e) {
-          console.error("Image upload failed, ignoring...", e);
+          console.error('[Onboarding] Image upload failed, continuing without photo:', e);
         }
       }
 
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      
-      // Transform their UI data structure to match the spec
-      const extractedBio = data.prompts && data.prompts[0] && data.prompts[0].answer 
-        ? data.prompts[0].answer 
-        : data.bio || '';
-        
+
+      // Use first prompt answer as bio if no explicit bio set
+      const extractedBio = data.prompts?.[0]?.answer || data.bio || '';
       const extractedLifestyle = Object.values(data.habits).filter(Boolean);
 
-      await updateDoc(userRef, {
-        name: data.name,
+      const firestorePayload = {
+        // Core spec fields
+        name: data.name || '',
         age: parseInt(data.age) || null,
-        city: data.location,
+        city: data.location || '',
         bio: extractedBio,
-        interests: data.interests,
+        interests: data.interests || [],
         lifestyle: extractedLifestyle,
         profilePic: profilePicUrl,
         profileCompleted: true,
         isRealUser: true,
-        
-        // Retain original data as well so the UI doesn't break
-        dobDay: data.dobDay,
-        dobMonth: data.dobMonth,
-        dobYear: data.dobYear,
-        heightFt: data.heightFt,
-        heightIn: data.heightIn,
-        gender: data.gender,
-        pincode: data.pincode,
-        habits: data.habits,
-        prompts: data.prompts,
-        vibes: data.vibes,
-        prefGender: data.prefGender,
-        prefAge: data.prefAge,
-        prefDist: data.prefDist,
-        isCompanion: data.isCompanion,
-        hourlyRate: data.hourlyRate,
-        services: data.services,
-      });
+        // Extended fields for UI
+        dobDay: data.dobDay || '', dobMonth: data.dobMonth || '', dobYear: data.dobYear || '',
+        heightFt: data.heightFt || '', heightIn: data.heightIn || '',
+        gender: data.gender || '',
+        pincode: data.pincode || '',
+        habits: data.habits || {},
+        prompts: data.prompts || [],
+        vibes: data.vibes || [],
+        prefGender: data.prefGender || '',
+        prefAge: data.prefAge || 25,
+        prefDist: data.prefDist || 15,
+        isCompanion: data.isCompanion || false,
+        hourlyRate: data.hourlyRate || null,
+        services: data.services || [],
+        currentStep: 8,
+      };
 
-      // Update local context
+      await updateDoc(userRef, firestorePayload);
+      console.log('[Onboarding] Profile saved, profileCompleted=true');
+
+      // Update local context so UI reflects immediately
       updateProfile({
-        name: data.name,
-        age: parseInt(data.age) || null,
-        city: data.location,
-        bio: extractedBio,
-        interests: data.interests,
-        lifestyle: extractedLifestyle,
-        profilePic: profilePicUrl,
-        vibes: data.vibes,
+        ...firestorePayload,
+        avatar: profilePicUrl,
         photos: data.photos,
-        avatar: profilePicUrl || data.photos[0],
-        profileCompleted: true,
-        isRealUser: true
       });
 
       router.push('/explore');
     } catch (error) {
-      console.error('Error saving onboarding data:', error);
+      console.error('[Onboarding] Error saving onboarding data:', error);
       setIsSaving(false);
     }
   };
