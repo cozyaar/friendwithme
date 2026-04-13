@@ -444,20 +444,31 @@ export default function Onboarding() {
   };
 
   const handleDobPartChange = (part, value) => {
-    const newData = { ...data, [part]: value };
-    setData(newData);
-    
-    // Auto-calculate age if all parts are filled
-    if (newData.dobDay && newData.dobMonth && newData.dobYear) {
-      const birthDate = new Date(`${newData.dobYear}-${newData.dobMonth}-${newData.dobDay}`);
-      const today = new Date();
-      let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        calculatedAge--;
+    setData(prev => {
+      const next = { ...prev, [part]: value };
+      
+      // Auto-calculate age if all parts are filled
+      if (next.dobDay && next.dobMonth && next.dobYear) {
+        const year = parseInt(next.dobYear);
+        const month = parseInt(next.dobMonth) - 1; // 0-indexed
+        const day = parseInt(next.dobDay);
+        
+        const birthDate = new Date(year, month, day);
+        const today = new Date();
+        
+        let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          calculatedAge--;
+        }
+        
+        next.age = calculatedAge.toString();
+        console.log(`[Onboarding] Calculated Age: ${next.age} from ${year}-${month+1}-${day}`);
       }
-      setData(prev => ({ ...prev, age: calculatedAge.toString() }));
-    }
+      
+      return next;
+    });
   };
 
   const handlePhotoUpload = (e, index) => {
