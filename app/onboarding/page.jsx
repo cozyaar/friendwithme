@@ -268,11 +268,20 @@ export default function Onboarding() {
 
   if (authLoading || !dbUser) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-purple border-t-transparent/20"></div>
-          <p className="text-brand-dark font-medium animate-pulse">Loading...</p>
-        </div>
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', background: '#0B0B0B', gap: '16px'
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%',
+          border: '4px solid rgba(212,175,55,0.2)',
+          borderTopColor: '#D4AF37',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <p style={{ color: '#D4AF37', fontSize: '14px', fontWeight: 600, letterSpacing: '0.05em' }}>
+          Loading your profile…
+        </p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }

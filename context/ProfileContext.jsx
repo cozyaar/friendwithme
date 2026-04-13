@@ -102,8 +102,23 @@ export function ProfileProvider({ children }) {
     } catch (e) {}
   };
 
-  // Wait until hydrated so server/client match
-  if (!hydrated) return null;
+  // Show a loading screen while Firebase Auth initialises — prevents blank page
+  if (!hydrated) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#0B0B0B', zIndex: 9999
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%',
+          border: '4px solid rgba(212,175,55,0.2)',
+          borderTopColor: '#D4AF37',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <ProfileContext.Provider value={{ profile, updateProfile, isLoggedIn, hydrated, login, logout }}>
