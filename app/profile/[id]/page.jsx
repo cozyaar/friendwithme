@@ -6,6 +6,13 @@ import {
   MessageCircle, Music, Coffee, Sparkles, Shield, Users
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+import { useState } from 'react';
+import { getAuth } from 'firebase/auth';
+import { db } from '@/lib/firebase';
+import { 
+  collection, query, where, getDocs, addDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
 
 // In real app: fetch by ID. For now, mock data keyed by id.
 const PROFILES = {
@@ -53,6 +60,51 @@ export default function ProfilePage() {
   const router = useRouter();
   const { id } = useParams();
   const person = PROFILES[id] || FALLBACK;
+  const [loading, setLoading] = useState(false);
+
+  const handleStartChat = async () => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Check if chat already exists
+      const chatsRef = collection(db, "chats");
+      const q = query(chatsRef, where("participants", "array-contains", currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      
+      let existingChatId = null;
+      querySnapshot.forEach((chatDoc) => {
+        const data = chatDoc.data();
+        if (data.participants?.includes(id)) {
+          existingChatId = chatDoc.id;
+        }
+      });
+
+      if (existingChatId) {
+        router.push(`/messages/${existingChatId}`);
+      } else {
+        // 2. Create new chat doc
+        const newChatRef = await addDoc(collection(db, "chats"), {
+          participants: [currentUser.uid, id],
+          lastMessage: "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        router.push(`/messages/${newChatRef.id}`);
+      }
+    } catch (err) {
+      console.error("Error initiating chat:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -180,10 +232,15 @@ export default function ProfilePage() {
         {/* Sticky bottom CTA */}
         <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 px-4 py-4 flex gap-3">
           <button
-            onClick={() => router.push(`/messages/${id}`)}
-            className="flex-1 py-3.5 bg-brand-dark text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-sm shadow-lg hover:opacity-90 transition-opacity"
+            onClick={handleStartChat}
+            disabled={loading}
+            className="flex-1 py-3.5 bg-brand-dark text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-sm shadow-lg hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            <MessageCircle size={17} /> Send Message
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <><MessageCircle size={17} /> Send Message</>
+            )}
           </button>
           <button className="w-12 h-12 rounded-2xl border border-gray-200 flex items-center justify-center text-brand-gray hover:text-red-500 hover:border-red-200 transition-colors">
             <Heart size={18} />

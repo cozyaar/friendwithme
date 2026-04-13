@@ -3,9 +3,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, MapPin, Filter, Star, Heart, X, MessageCircle,
-  ChevronLeft, ChevronRight, CheckCircle2, Send, Sparkles,
-  Navigation, SlidersHorizontal, RotateCcw, Shield, Zap
+  Circle, ChevronLeft, ChevronRight, CheckCircle2, Send, Sparkles,
+  Navigation, SlidersHorizontal, RotateCcw, Shield, Zap, Loader2
 } from 'lucide-react';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/context/ProfileContext';
 
@@ -482,6 +484,47 @@ export default function Explore() {
     }, 600);
   };
 
+  const handleStartChat = async (otherUid) => {
+    if (!dbUser) {
+      router.push('/login');
+      return;
+    }
+
+    setLoadingChat(true);
+    try {
+      const chatsRef = collection(db, "chats");
+      const q = query(chatsRef, where("participants", "array-contains", dbUser.uid));
+      const querySnapshot = await getDocs(q);
+      
+      let existingChatId = null;
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.participants?.includes(otherUid)) {
+          existingChatId = doc.id;
+        }
+      });
+
+      if (existingChatId) {
+        router.push(`/messages/${existingChatId}`);
+      } else {
+        const newChat = await addDoc(collection(db, "chats"), {
+          participants: [dbUser.uid, otherUid],
+          lastMessage: "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        router.push(`/messages/${newChat.id}`);
+      }
+    } catch (err) {
+      console.error("Error starting chat:", err);
+      alert("Failed to start chat. Please try again.");
+    } finally {
+      setLoadingChat(false);
+    }
+  };
+
+  const [loadingChat, setLoadingChat] = useState(false);
+
   const nextImage = () => {
     if (profile && imageIndex < profile.images.length - 1) setImageIndex(p => p + 1);
   };
@@ -770,9 +813,14 @@ export default function Explore() {
               </motion.button>
 
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={() => setShowMessage(true)}
-                className="px-7 py-3.5 bg-brand-dark text-white rounded-full font-bold shadow-xl flex items-center gap-2 hover:-translate-y-0.5 transition-transform text-sm">
-                <MessageCircle size={18} /> Send Message
+                onClick={() => handleStartChat(profile.id)}
+                disabled={loadingChat}
+                className="px-7 py-3.5 bg-brand-dark text-white rounded-full font-bold shadow-xl flex items-center gap-2 hover:-translate-y-0.5 transition-transform text-sm disabled:opacity-50">
+                {loadingChat ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <><MessageCircle size={18} /> Send Message</>
+                )}
               </motion.button>
 
               <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
