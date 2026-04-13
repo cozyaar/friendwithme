@@ -3,16 +3,18 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   MapPin, Star, ShieldCheck, ChevronLeft, Heart,
-  MessageCircle, Music, Coffee, Sparkles, Shield, Users
+  MessageCircle, Music, Coffee, Sparkles, Shield, Users, Loader2,
+  CheckCheck
 } from 'lucide-react';
+import { 
+  collection, query, where, getDocs, addDoc, serverTimestamp,
+  doc, setDoc, getDoc 
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getAuth } from 'firebase/auth';
 import { useRouter, useParams } from 'next/navigation';
 import { useState } from 'react';
-import { getAuth } from 'firebase/auth';
-import { db } from '@/lib/firebase';
-import { 
-  collection, query, where, getDocs, addDoc, 
-  serverTimestamp 
-} from 'firebase/firestore';
+import { AnimatePresence } from 'framer-motion';
 
 // In real app: fetch by ID. For now, mock data keyed by id.
 const PROFILES = {
@@ -61,6 +63,55 @@ export default function ProfilePage() {
   const { id } = useParams();
   const person = PROFILES[id] || FALLBACK;
   const [loading, setLoading] = useState(false);
+  const [showMatch, setShowMatch] = useState(false);
+  const [matchInfo, setMatchInfo] = useState(null);
+
+  const handleLike = async () => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) { router.push('/login'); return; }
+
+    try {
+      // 1. Save like
+      const likeId = `${currentUser.uid}_${id}`;
+      const likeRef = doc(db, "likes", likeId);
+      const likeSnap = await getDoc(likeRef);
+      
+      if (!likeSnap.exists()) {
+        await setDoc(likeRef, {
+          fromUserId: currentUser.uid,
+          toUserId: id,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      // 2. Check match
+      const mutualLikeId = `${id}_${currentUser.uid}`;
+      const mutualSnap = await getDoc(doc(db, "likes", mutualLikeId));
+
+      if (mutualSnap.exists()) {
+        const chatId = [currentUser.uid, id].sort().join("_");
+        const chatRef = doc(db, "chats", chatId);
+        const chatSnap = await getDoc(chatRef);
+
+        if (!chatSnap.exists()) {
+          await setDoc(chatRef, {
+            participants: [currentUser.uid, id],
+            lastMessage: "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        setMatchInfo({ name: person.name, img: person.img, chatId });
+        setShowMatch(true);
+      } else {
+        alert("Liked! If they like you back, it's a match! ✨");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleStartChat = async () => {
     const auth = getAuth();
@@ -242,12 +293,43 @@ export default function ProfilePage() {
               <><MessageCircle size={17} /> Send Message</>
             )}
           </button>
-          <button className="w-12 h-12 rounded-2xl border border-gray-200 flex items-center justify-center text-brand-gray hover:text-red-500 hover:border-red-200 transition-colors">
+          <button 
+            onClick={handleLike}
+            className="w-12 h-12 rounded-2xl border border-gray-200 flex items-center justify-center text-brand-gray hover:text-red-500 hover:border-red-200 transition-colors"
+          >
             <Heart size={18} />
           </button>
         </div>
 
       </div>
+
+      {/* Match Modal */}
+      <AnimatePresence>
+        {showMatch && matchInfo && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} className="relative mb-12">
+              <div className="absolute inset-0 bg-brand-gradient blur-3xl opacity-30 animate-pulse" />
+              <div className="flex -space-x-6 relative">
+                <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 overflow-hidden">
+                  <Image unoptimized width={120} height={120} src={getAuth().currentUser?.photoURL || "/images/companion_1.png"} className="w-full h-full object-cover" alt="" />
+                </div>
+                <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 overflow-hidden">
+                  <Image unoptimized width={120} height={120} src={matchInfo.img} className="w-full h-full object-cover" alt="" />
+                </div>
+              </div>
+            </motion.div>
+            <h2 className="text-4xl font-black text-white mb-4">It's a Match!</h2>
+            <p className="text-brand-gray mb-10">You and {matchInfo.name} are connected.</p>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <button onClick={() => router.push(`/messages/${matchInfo.chatId}`)} className="py-4 bg-brand-gradient text-black font-bold rounded-2xl shadow-xl">Send Message</button>
+              <button onClick={() => setShowMatch(false)} className="py-4 bg-white/10 text-white font-bold rounded-2xl">Keep Browsing</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

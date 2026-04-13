@@ -1,12 +1,15 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import {
   Search, MapPin, Filter, Star, Heart, X, MessageCircle,
   Circle, ChevronLeft, ChevronRight, CheckCircle2, Send, Sparkles,
   Navigation, SlidersHorizontal, RotateCcw, Shield, Zap, Loader2
 } from 'lucide-react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  collection, query, where, getDocs, addDoc, serverTimestamp,
+  doc, setDoc, getDoc 
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/context/ProfileContext';
@@ -471,17 +474,87 @@ export default function Explore() {
     filters.bestMatch,
   ].filter(Boolean).length;
 
-  const profile = filteredProfiles[currentIndex];
+  const [matchInfo, setMatchInfo] = useState(null);
+  
+  // Swipe mechanics
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-300, 300], [-30, 30]);
+  const opacity = useTransform(x, [-300, -150, 0, 150, 300], [0, 1, 1, 1, 0]);
+  const likeOpacity = useTransform(x, [50, 150], [0, 1]);
+  const skipOpacity = useTransform(x, [-50, -150], [0, 1]);
+
+  const handleLike = async (targetUserId) => {
+    if (!dbUser) { router.push('/login'); return; }
+    const currentUserId = dbUser.uid;
+
+    try {
+      // 1. Save like (use deterministic ID to prevent duplicates)
+      const likeId = `${currentUserId}_${targetUserId}`;
+      const likeRef = doc(db, "likes", likeId);
+      const likeSnap = await getDoc(likeRef);
+      
+      if (!likeSnap.exists()) {
+        await setDoc(likeRef, {
+          fromUserId: currentUserId,
+          toUserId: targetUserId,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      // 2. Check for mutual like
+      const mutualLikeId = `${targetUserId}_${currentUserId}`;
+      const mutualSnap = await getDoc(doc(db, "likes", mutualLikeId));
+
+      if (mutualSnap.exists()) {
+        const chatId = [currentUserId, targetUserId].sort().join("_");
+        const chatRef = doc(db, "chats", chatId);
+        const chatSnap = await getDoc(chatRef);
+
+        if (!chatSnap.exists()) {
+          await setDoc(chatRef, {
+            participants: [currentUserId, targetUserId],
+            lastMessage: "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        // Set match info for UI feedback
+        setMatchInfo({ 
+          name: profile.name,
+          img: profile.images[0],
+          chatId: chatId 
+        });
+        setShowMatch(true);
+      }
+    } catch (err) {
+      console.error("Error in handleLike:", err);
+    }
+  };
 
   const handleNextProfile = (actionType) => {
+    if (actionType === 'like' && profile) {
+      handleLike(profile.id);
+    }
+    
+    // Animate out
     setActionSplash(actionType);
-    setShowMessage(false);
-    setMessageText('');
     setTimeout(() => {
       setActionSplash(null);
       setCurrentIndex(prev => (prev + 1) % Math.max(filteredProfiles.length, 1));
       setImageIndex(0);
+      x.set(0); // Reset swipe position
     }, 600);
+  };
+
+  const onDragEnd = (e, info) => {
+    if (info.offset.x > 150) {
+      handleNextProfile('like');
+    } else if (info.offset.x < -150) {
+      handleNextProfile('skip');
+    } else {
+      x.set(0);
+    }
   };
 
   const handleStartChat = async (otherUid) => {
@@ -634,7 +707,17 @@ export default function Explore() {
           </button>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative mt-14">
+        <motion.div 
+          style={{ x, rotate, opacity }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragEnd={onDragEnd}
+          className="flex-1 flex flex-col md:flex-row overflow-hidden relative mt-14 cursor-grab active:cursor-grabbing"
+        >
+
+          {/* Swipe text indicators */}
+          <motion.div style={{ opacity: likeOpacity }} className="absolute top-20 left-10 z-[60] border-4 border-green-500 text-green-500 font-black text-4xl px-4 py-2 rounded-xl rotate-[-15deg] pointer-events-none uppercase">LIKE</motion.div>
+          <motion.div style={{ opacity: skipOpacity }} className="absolute top-20 right-10 z-[60] border-4 border-red-500 text-red-500 font-black text-4xl px-4 py-2 rounded-xl rotate-[15deg] pointer-events-none uppercase">SKIP</motion.div>
 
           {/* Splash overlay */}
           <AnimatePresence>
@@ -869,13 +952,54 @@ export default function Explore() {
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Filter modal */}
+      {/* Match Modal */}
       <AnimatePresence>
-        {showFilter && <FilterModal filters={filters} setFilters={setFilters} onClose={() => setShowFilter(false)} />}
+        {showMatch && matchInfo && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div 
+              initial={{ scale: 0.5, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="relative mb-12"
+            >
+              <div className="absolute inset-0 bg-brand-gradient blur-3xl opacity-30 animate-pulse" />
+              <div className="flex -space-x-6 relative">
+                <Image unoptimized width={120} height={120} src={dbUser.photoURL || "/images/companion_1.png"} className="w-24 h-24 rounded-full border-4 border-white object-cover shadow-2xl" alt="You" />
+                <Image unoptimized width={120} height={120} src={matchInfo.img} className="w-24 h-24 rounded-full border-4 border-white object-cover shadow-2xl" alt="Match" />
+              </div>
+              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-full p-2 shadow-xl">
+                <Heart size={24} className="fill-brand-pink text-brand-pink" />
+              </div>
+            </motion.div>
+
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-4 leading-tight">It's a Match!</h2>
+            <p className="text-brand-gray text-lg max-w-xs mb-10">You and <span className="text-white font-bold">{matchInfo.name}</span> have liked each other.</p>
+
+            <div className="flex flex-col gap-4 w-full max-w-xs">
+              <button 
+                onClick={() => router.push(`/messages/${matchInfo.chatId}`)}
+                className="w-full py-4 bg-brand-gradient text-black font-bold rounded-2xl shadow-xl hover:scale-105 transition-transform"
+              >
+                Send Message
+              </button>
+              <button 
+                onClick={() => setShowMatch(false)}
+                className="w-full py-4 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-colors"
+              >
+                Keep Exploring
+              </button>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
+
+      <style jsx global>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
