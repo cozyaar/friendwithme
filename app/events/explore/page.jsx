@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -54,7 +55,7 @@ function JoinModal({ event, onClose }) {
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X size={16} /></button>
         </div>
         <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl mb-5">
-          <img src={event.creator.img} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" alt="" />
+          <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" alt=""  />
           <div>
             <p className="font-bold text-brand-dark text-sm">{event.title}</p>
             <p className="text-brand-gray text-xs">{event.location} · {event.date}</p>
@@ -88,7 +89,7 @@ function EventCard({ event, onJoin, index }) {
     >
       {/* Image */}
       <div className="relative h-44 overflow-hidden">
-        <img src={event.imgs[0]} alt={event.title} className="w-full h-full object-cover" />
+        <Image unoptimized width={100} height={100}  src={event.imgs[0]} alt={event.title} className="w-full h-full object-cover"  />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute top-3 left-3 flex gap-2">
           {event.trending && (
@@ -103,7 +104,7 @@ function EventCard({ event, onJoin, index }) {
           )}
         </div>
         <div className="absolute bottom-3 left-3 flex items-center gap-2">
-          <img src={event.creator.img} className="w-7 h-7 rounded-full border-2 border-white object-cover" alt="" />
+          <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-7 h-7 rounded-full border-2 border-white object-cover" alt=""  />
           <span className="text-white text-xs font-bold">{event.creator.name}</span>
         </div>
       </div>
@@ -176,6 +177,9 @@ export default function ExploreEvents() {
               }
            }
 
+           // Deterministic randomness based on ID to prevent jumping
+           const idSeed = document.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+           
            eventsData.push({
              id: document.id,
              title: data.title || 'Untitled',
@@ -185,11 +189,11 @@ export default function ExploreEvents() {
              date: data.date || (data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString() : 'Soon'),
              slots: data.slots || 10,
              joined: data.participants?.length || 1,
-             interested: Math.floor(Math.random() * 50) + 10,
+             interested: (idSeed % 50) + 10,
              activities: data.activities || [],
              imgs: data.images?.length ? data.images : ["https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=800"],
-             trending: Math.random() > 0.7,
-             nearYou: Math.random() > 0.5
+             trending: (idSeed % 10) > 7,
+             nearYou: (idSeed % 10) > 5
            });
         }
         setAllEvents(eventsData);

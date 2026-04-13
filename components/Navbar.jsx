@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -110,11 +111,11 @@ export default function Navbar() {
                   className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
                 >
                   <div className="relative">
-                    <img
+                    <Image unoptimized width={100} height={100} 
                       src={profile.avatar || profile.photos?.[0] || "/images/companion_1.png"} 
                       alt={profile.name}
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
-                    />
+                     />
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
                   </div>
                   <div className="text-left">
@@ -190,7 +191,7 @@ export default function Navbar() {
           {isLoggedIn ? (
             <button onClick={() => setShowProfileModal(true)} className={`flex flex-col items-center justify-center w-full h-full ${pathname === '/profile/me' ? 'text-brand-pink' : 'text-brand-gray'}`}>
               <motion.div whileTap={{ scale: 0.9 }} className="relative">
-                <img src={profile.avatar || profile.photos?.[0] || "/images/companion_1.png"} alt="" className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-sm" />
+                <Image unoptimized width={100} height={100}  src={profile.avatar || profile.photos?.[0] || "/images/companion_1.png"} alt="" className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-sm"  />
                 <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white" />
               </motion.div>
             </button>

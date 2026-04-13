@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -686,7 +687,7 @@ export default function Onboarding() {
           <div key={i} className={`aspect-[3/4] rounded-2xl border-2 flex flex-col items-center justify-center relative overflow-hidden group transition-all shadow-sm ${photo ? 'border-brand-purple/20' : (i === 0 ? 'border-brand-purple border-dashed bg-brand-purple/5' : 'border-gray-200 border-dashed bg-gray-50 hover:bg-gray-100')}`}>
             {photo ? (
                <motion.div initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} className="w-full h-full relative">
-                 <img src={photo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={`Upload ${i}`} />
+                 <Image unoptimized width={100} height={100}  src={photo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={`Upload ${i}`}  />
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                    <button onClick={(e) => { e.stopPropagation(); removePhoto(i); }} className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white hover:scale-110 hover:shadow-lg transition-transform active:scale-95 shadow-xl relative z-20">
                      <span className="font-bold">✕</span>

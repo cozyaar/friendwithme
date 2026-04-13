@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, Clock, CreditCard, ShieldCheck } from 'lucide-react';
@@ -22,7 +23,7 @@ export default function Booking() {
         <h1 className="text-3xl font-bold mb-8 text-brand-dark">Complete Booking</h1>
 
         <div className="flex gap-4 mb-10 pb-10 border-b border-brand-gray/20">
-          <img src={parseInt(id) % 2 === 0 ? "/images/companion_2.png" : "/images/companion_1.png"} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
+          <Image unoptimized width={100} height={100}  src={parseInt(id) % 2 === 0 ? "/images/companion_2.png" : "/images/companion_1.png"} className="w-20 h-20 rounded-2xl object-cover shadow-md"  />
           <div>
             <h2 className="text-xl font-bold text-brand-dark">Isabella</h2>
             <p className="text-brand-gray">New York, NY</p>

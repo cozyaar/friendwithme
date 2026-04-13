@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
   body {
     background: #0B0B0B !important;
     color: #F5F5F5 !important;
@@ -11,8 +15,11 @@
     min-height: 100vh;
   }
   
+  /* Remove universal transition as it causes major flickering on page changes */
   * {
-    transition: all 0.25s ease;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 }
 

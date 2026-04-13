@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -75,10 +76,14 @@ export default function LandingPage() {
 
         {/* Floating Avatars */}
         <div className="absolute top-1/4 -left-4 md:-left-8 hidden lg:block z-[-1]">
-          <motion.img animate={{ y: [-15, 15, -15] }} transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }} src="/images/companion_1.png" className="w-24 h-24 rounded-full object-cover border-[6px] border-white shadow-2xl shadow-brand-pink/20" />
+          <motion.div animate={{ y: [-15, 15, -15] }} transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}>
+            <Image unoptimized width={96} height={96} src="/images/companion_1.png" className="w-24 h-24 rounded-full object-cover border-[6px] border-white shadow-2xl shadow-brand-pink/20" alt="" />
+          </motion.div>
         </div>
         <div className="absolute top-[60%] -right-4 md:-right-8 hidden lg:block z-[-1]">
-          <motion.img animate={{ y: [15, -15, 15] }} transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }} src="/images/companion_2.png" className="w-28 h-28 rounded-full object-cover border-[6px] border-white shadow-2xl shadow-brand-blue/20" />
+          <motion.div animate={{ y: [15, -15, 15] }} transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }}>
+            <Image unoptimized width={112} height={112} src="/images/companion_2.png" className="w-28 h-28 rounded-full object-cover border-[6px] border-white shadow-2xl shadow-brand-blue/20" alt="" />
+          </motion.div>
         </div>
       </section>
 
@@ -88,7 +93,7 @@ export default function LandingPage() {
            <div className="flex -space-x-4">
              {[1,2,3,4,5].map(i => (
                <div key={i} className="w-12 h-12 rounded-full border-[3px] border-white overflow-hidden shadow-lg">
-                 <img src={i%2===0 ? "/images/companion_2.png" : "/images/companion_1.png"} className="w-full h-full object-cover"/>
+                 <Image unoptimized width={100} height={100}  src={i%2===0 ? "/images/companion_2.png" : "/images/companion_1.png"} className="w-full h-full object-cover" />
                </div>
              ))}
            </div>
@@ -190,7 +195,7 @@ export default function LandingPage() {
                   </div>
                   <p className="text-xl font-medium text-brand-dark mb-6 whitespace-normal">"I needed a plus one for my corporate event. Aura provided someone who was not only stunning but could hold a conversation with industry leaders perfectly."</p>
                   <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden"><img src={`/images/companion_${(i%2)+1}.png`} className="w-full h-full object-cover"/></div>
+                     <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden"><Image unoptimized width={100} height={100}  src={`/images/companion_${(i%2)+1}.png`} className="w-full h-full object-cover" /></div>
                      <span className="font-bold text-brand-dark">Sarah J.</span>
                   </div>
                 </div>

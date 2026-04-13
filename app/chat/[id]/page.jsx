@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, ChevronLeft, X, CheckCheck, MapPin, Heart, Music, Coffee, Star, Shield, Sparkles } from 'lucide-react';
@@ -69,8 +70,8 @@ function ProfileDrawer({ person, onClose }) {
 
         {/* Cover photo + info */}
         <div className="relative h-56">
-          <img src={person.img} alt={person.name}
-            className="w-full h-full object-cover object-top" />
+          <Image unoptimized width={100} height={100}  src={person.img} alt={person.name}
+            className="w-full h-full object-cover object-top"  />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-4 left-5 right-5">
             <div className="flex items-center gap-2">
@@ -138,8 +139,8 @@ function ProfileDrawer({ person, onClose }) {
               <h4 className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-3">Photos</h4>
               <div className="grid grid-cols-3 gap-2">
                 {person.photos.map((p, i) => (
-                  <img key={i} src={p} alt=""
-                    className="w-full h-24 object-cover rounded-2xl border border-gray-100" />
+                  <Image unoptimized width={100} height={100}  key={i} src={p} alt=""
+                    className="w-full h-24 object-cover rounded-2xl border border-gray-100"  />
                 ))}
               </div>
             </div>
@@ -198,8 +199,8 @@ export default function ChatPage() {
 
               {/* Avatar → open photo viewer */}
               <button onClick={() => setShowPhoto(true)} className="relative shrink-0">
-                <img src={person.img} alt={person.name}
-                  className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm hover:opacity-90 transition-opacity" />
+                <Image unoptimized width={100} height={100}  src={person.img} alt={person.name}
+                  className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm hover:opacity-90 transition-opacity"  />
                 {person.online && (
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 )}
@@ -225,7 +226,7 @@ export default function ChatPage() {
                 >
                   {!m.isMe && (
                     <button onClick={() => setShowPhoto(true)} className="shrink-0 mb-1">
-                      <img src={person.img} className="w-7 h-7 rounded-full object-cover opacity-80 hover:opacity-100" alt="" />
+                      <Image unoptimized width={100} height={100}  src={person.img} className="w-7 h-7 rounded-full object-cover opacity-80 hover:opacity-100" alt=""  />
                     </button>
                   )}
                   <div className={`max-w-[72%] flex flex-col gap-1 ${m.isMe ? 'items-end' : 'items-start'}`}>

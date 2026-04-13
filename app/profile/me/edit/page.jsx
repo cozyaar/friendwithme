@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Check, Plus, X, Camera, Toggle } from 'lucide-react';
@@ -82,7 +83,7 @@ export default function EditProfile() {
           <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-4">Profile Photo</p>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <img src={form.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md" />
+              <Image unoptimized width={100} height={100}  src={form.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"  />
               <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-dark text-white rounded-full flex items-center justify-center shadow-md">
                 <Camera size={13} />
               </button>

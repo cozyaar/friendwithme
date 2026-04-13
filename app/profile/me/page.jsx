@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   MapPin, Star, ShieldCheck, Edit3, Camera, Music,
@@ -57,8 +58,8 @@ export default function MyProfile() {
         {/* Avatar */}
         <div className="absolute left-5 bottom-0 translate-y-1/2">
           <div className="relative">
-            <img src={profile.profilePic || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || "User")}`} alt={profile.name || "User"}
-              className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-xl bg-white" />
+            <Image unoptimized width={100} height={100}  src={profile.profilePic || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || "User")}`} alt={profile.name || "User"}
+              className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-xl bg-white"  />
             <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
           </div>
         </div>
@@ -184,7 +185,7 @@ export default function MyProfile() {
                 if(!p) return null;
                 return (
                   <div key={i} className="aspect-square rounded-2xl overflow-hidden shadow-sm bg-gray-100">
-                    <img src={p} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                    <Image unoptimized width={100} height={100}  src={p} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"  />
                   </div>
                 );
               })}

@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Bell, Shield, LogOut, ChevronRight, Edit3 } from 'lucide-react';
@@ -108,8 +109,8 @@ export default function SettingsPage() {
             >
               <div className="relative shrink-0">
                 {profile.avatar ? (
-                  <img src={profile.avatar} alt={profile.name}
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md" />
+                  <Image unoptimized width={100} height={100}  src={profile.avatar} alt={profile.name}
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md"  />
                 ) : (
                   <div className="w-14 h-14 rounded-2xl bg-brand-dark text-white flex items-center justify-center font-extrabold text-2xl">
                     {profile.name?.[0] || 'U'}

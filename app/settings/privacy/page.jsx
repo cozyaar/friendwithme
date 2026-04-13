@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Check, UserX, Flag, AlertTriangle } from 'lucide-react';
@@ -153,7 +154,7 @@ export default function PrivacySettings() {
               <div className="space-y-2">
                 {blocked.map(user => (
                   <div key={user.id} className="flex items-center gap-3">
-                    <img src={user.img} alt={user.name} className="w-9 h-9 rounded-full object-cover" />
+                    <Image unoptimized width={100} height={100}  src={user.img} alt={user.name} className="w-9 h-9 rounded-full object-cover"  />
                     <p className="text-sm font-bold text-brand-dark flex-1">{user.name}</p>
                     <button
                       onClick={() => setUnblockId(user.id)}

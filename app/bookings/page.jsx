@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,8 +70,8 @@ function RequestCard({ item, onAccept, onDecline, showActions = true, showStatus
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div className="relative shrink-0">
-          <img src={item.img} alt={item.name}
-            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" />
+          <Image unoptimized width={100} height={100}  src={item.img} alt={item.name}
+            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow"  />
           {item.unread && (
             <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-purple rounded-full border-2 border-white" />
           )}
@@ -161,8 +162,8 @@ function MessageCard({ item, index }) {
       <Link href={`/chat/${item.chatId || item.id}`}
         className="flex items-center gap-4 bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all block">
         <div className="relative shrink-0">
-          <img src={item.img} alt={item.name}
-            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" />
+          <Image unoptimized width={100} height={100}  src={item.img} alt={item.name}
+            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow"  />
           {item.unread && (
             <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-purple rounded-full border-2 border-white" />
           )}

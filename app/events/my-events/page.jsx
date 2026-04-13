@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -366,7 +367,7 @@ export default function MyEvents() {
               >
                 {/* Cover image */}
                 <div className="relative h-40 overflow-hidden">
-                  <img src={ev.img} alt={ev.title} className="w-full h-full object-cover" />
+                  <Image unoptimized width={100} height={100}  src={ev.img} alt={ev.title} className="w-full h-full object-cover"  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                   <span className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold ${ev.status === 'Open' ? 'bg-green-500 text-white' : 'bg-gray-700/80 text-white'}`}>
                     {ev.status === 'Open' ? '● Open' : '✕ Full'}

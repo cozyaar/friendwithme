@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -55,7 +56,7 @@ function PrivateChatModal({ event, currentUser, onClose }) {
       >
         <div className="flex items-center gap-3 p-5 border-b border-gray-100 shrink-0">
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X size={15} /></button>
-          <img src={event.creator.img} className="w-10 h-10 rounded-full object-cover" alt="" />
+          <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-10 h-10 rounded-full object-cover" alt=""  />
           <div>
             <p className="font-bold text-brand-dark text-sm">{event.creator.name}</p>
             <p className="text-xs text-brand-gray">Event organiser · Private chat</p>
@@ -118,7 +119,7 @@ function GroupChatModal({ event, onClose }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.map(m => (
             <div key={m.id} className={`flex gap-3 ${m.mine ? 'flex-row-reverse' : ''}`}>
-              {!m.mine && <img src={m.img} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />}
+              {!m.mine && <Image unoptimized width={100} height={100}  src={m.img} className="w-8 h-8 rounded-full object-cover shrink-0" alt=""  />}
               <div className={`max-w-[75%] flex flex-col gap-0.5 ${m.mine ? 'items-end' : 'items-start'}`}>
                 {!m.mine && <span className="text-[11px] text-brand-gray font-semibold px-1">{m.user}</span>}
                 <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium ${m.mine ? 'bg-brand-dark text-white rounded-tr-sm' : 'bg-gray-100 text-brand-dark rounded-tl-sm'}`}>
@@ -263,7 +264,7 @@ export default function EventDetail({ params }) {
                     {[event.creator, ...event.participants].map((p, i) => (
                       <div key={i} className="flex flex-col items-center gap-1.5">
                         <div className="relative">
-                          <img src={p.img} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" alt="" />
+                          <Image unoptimized width={100} height={100}  src={p.img} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" alt=""  />
                           {i === 0 && <div className="absolute -bottom-1 -right-1 bg-brand-dark text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">Host</div>}
                         </div>
                         <span className="text-xs text-brand-gray font-medium">{p.name}</span>
@@ -290,7 +291,7 @@ export default function EventDetail({ params }) {
                   ) : (
                     pendingRequests.map(r => (
                       <div key={r.name} className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl">
-                        <img src={r.img} className="w-12 h-12 rounded-full object-cover shrink-0" alt="" />
+                        <Image unoptimized width={100} height={100}  src={r.img} className="w-12 h-12 rounded-full object-cover shrink-0" alt=""  />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-brand-dark text-sm">{r.name}</p>
                           {r.message && <p className="text-brand-gray text-sm mt-0.5 line-clamp-2">"{r.message}"</p>}
@@ -335,7 +336,7 @@ export default function EventDetail({ params }) {
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
               <p className="text-xs uppercase tracking-widest font-bold text-brand-gray mb-3">Organised by</p>
               <div className="flex items-center gap-3">
-                <img src={event.creator.img} className="w-12 h-12 rounded-full object-cover" alt="" />
+                <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-12 h-12 rounded-full object-cover" alt=""  />
                 <div>
                   <div className="flex items-center gap-1">
                     <span className="font-bold text-brand-dark">{event.creator.name}</span>

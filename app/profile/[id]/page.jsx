@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   MapPin, Star, ShieldCheck, ChevronLeft, Heart,
@@ -69,10 +70,10 @@ export default function ProfilePage() {
 
         {/* Hero photo */}
         <div className="relative">
-          <img
+          <Image unoptimized width={100} height={100} 
             src={person.img} alt={person.name}
             className="w-full h-80 object-cover object-top"
-          />
+           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
           {/* Overlay info */}
@@ -106,8 +107,8 @@ export default function ProfilePage() {
         {person.photos.length > 1 && (
           <div className="flex gap-2 px-4 py-3 bg-white border-b border-gray-100 overflow-x-auto scrollbar-hide">
             {person.photos.map((p, i) => (
-              <img key={i} src={p} alt=""
-                className="h-20 w-20 object-cover rounded-2xl shrink-0 border border-gray-100 shadow-sm" />
+              <Image unoptimized width={100} height={100}  key={i} src={p} alt=""
+                className="h-20 w-20 object-cover rounded-2xl shrink-0 border border-gray-100 shadow-sm"  />
             ))}
           </div>
         )}

@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Star, ShieldCheck, Heart, MessageCircle, Phone, Mail, Calendar, Camera } from 'lucide-react';
 
@@ -28,11 +29,11 @@ export default function ProfileModal({ profile, isOpen, onClose }) {
             <div className="bg-white w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl pointer-events-auto relative">
               {/* Profile Header Image */}
               <div className="h-64 relative bg-gray-200">
-                <img 
+                <Image unoptimized width={100} height={100}  
                   src={profile.avatar || profile.photos?.[0] || "/images/companion_1.png"} 
                   alt={profile.name}
                   className="w-full h-full object-cover"
-                />
+                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 
                 {/* Close Button */}
