@@ -478,12 +478,13 @@ export default function Onboarding() {
   };
 
   const toggleInterest = (id) => {
-    if (data.interests.includes(id)) {
-      updateData('interests', data.interests.filter(i => i !== id));
+    const interests = data.interests || [];
+    if (interests.includes(id)) {
+      updateData('interests', interests.filter(i => i !== id));
       setShowMaxToast(false);
     } else {
-      if (data.interests.length < 9) {
-        updateData('interests', [...data.interests, id]);
+      if (interests.length < 9) {
+        updateData('interests', [...interests, id]);
         setShowMaxToast(false);
       } else {
         setShowMaxToast(true);
@@ -493,16 +494,17 @@ export default function Onboarding() {
   };
 
   const togglePrompt = (q) => {
-    const isSelected = data.prompts.some(p => p.question === q);
+    const prompts = data.prompts || [];
+    const isSelected = prompts.some(p => p.question === q);
     if (isSelected) {
-      updateData('prompts', data.prompts.filter(p => p.question !== q));
-    } else if (data.prompts.length < 3) {
-      updateData('prompts', [...data.prompts, { question: q, answer: "" }]);
+      updateData('prompts', prompts.filter(p => p.question !== q));
+    } else if (prompts.length < 3) {
+      updateData('prompts', [...prompts, { question: q, answer: "" }]);
     }
   };
 
   const updatePrompt = (index, value) => {
-    const newPrompts = [...data.prompts];
+    const newPrompts = [...(data.prompts || [])];
     newPrompts[index].answer = value;
     updateData('prompts', newPrompts);
   };
@@ -517,23 +519,24 @@ export default function Onboarding() {
   ];
 
   const toggleVibe = (vibe) => {
-    if (data.vibes.includes(vibe)) {
-      updateData('vibes', data.vibes.filter(v => v !== vibe));
+    const vibes = data.vibes || [];
+    if (vibes.includes(vibe)) {
+      updateData('vibes', vibes.filter(v => v !== vibe));
     } else {
-      if (data.vibes.length < 3) {
-        updateData('vibes', [...data.vibes, vibe]);
+      if (vibes.length < 3) {
+        updateData('vibes', [...vibes, vibe]);
       } else {
         alert("You can select up to 3 vibes!");
       }
     }
   };
 
-  // Validators
-  const isStep1Valid = data.name.trim() !== '' && data.age && parseInt(data.age) >= 18 && data.gender !== '' && data.location !== '' && data.heightFt !== '' && data.heightIn !== '';
-  const isStep2Valid = Object.values(data.habits).every(val => val !== '');
-  const isStep4Valid = data.interests.length >= 5;
-  const isStep5Valid = data.prompts.length === 3 && data.prompts.every(p => p.answer && p.answer.length >= 10);
-  const isStep7Valid = !data.isCompanion || (data.hourlyRate && Number(data.hourlyRate) > 0 && data.services.length > 0);
+  // Validators — all null-safe to prevent crash before Firestore loads
+  const isStep1Valid = (data.name || '').trim() !== '' && data.age && parseInt(data.age) >= 18 && (data.gender || '') !== '' && (data.location || '') !== '' && (data.heightFt || '') !== '' && (data.heightIn || '') !== '';
+  const isStep2Valid = Object.values(data.habits || {}).filter(Boolean).length === 5;
+  const isStep4Valid = (data.interests || []).length >= 5;
+  const isStep5Valid = (data.prompts || []).length === 3 && data.prompts.every(p => p.answer && p.answer.length >= 10);
+  const isStep7Valid = !data.isCompanion || (data.hourlyRate && Number(data.hourlyRate) > 0 && (data.services || []).length > 0);
 
   const COMPANION_SERVICES = [
     "Hanging Out 😌", "Coffee & Chat ☕", "Casual Walk 🚶", 
@@ -635,11 +638,11 @@ export default function Onboarding() {
       <h3 className="text-sm font-bold text-brand-gray uppercase tracking-wider flex items-center gap-2">{icon} {title}</h3>
       <div className="flex flex-wrap gap-2">
         {options.map(opt => {
-          const isActive = data.habits[field] === opt;
+          const isActive = (data.habits || {})[field] === opt;
           return (
             <motion.button 
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={() => setData(prev => ({...prev, habits: {...prev.habits, [field]: opt}}))}
+              onClick={() => setData(prev => ({...prev, habits: {...(prev.habits || {}), [field]: opt}}))}
               key={opt}
               className={`px-4 py-2.5 rounded-full font-bold text-sm transition-all border-2 flex items-center gap-2 ${isActive ? 'bg-brand-dark text-white border-brand-dark shadow-xl shadow-brand-dark/20' : 'bg-white text-brand-dark border-gray-100 shadow-sm hover:border-brand-purple/30'}`}
             >
