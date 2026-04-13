@@ -1,10 +1,13 @@
 'use client';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Check, Plus, X, Camera, Toggle } from 'lucide-react';
+import { ChevronLeft, Check, Plus, X, Camera, Toggle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/context/ProfileContext';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage, db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const INTEREST_OPTIONS = ['Travel 🌍', 'Food 🍜', 'Music 🎵', 'Cricket 🏏', 'Photography 📷', 'Tech 💻', 'Art 🎨', 'Hiking 🥾', 'Coffee ☕', 'Movies 🎬', 'Books 📚', 'Gaming 🎮', 'Dance 💃', 'Yoga 🧘', 'Cooking 🍳'];
 const VIBE_OPTIONS = ['Chill 😌', 'Social 🎉', 'Adventurous 🏕️', 'Creative 🎨', 'Foodie 🍜', 'Sporty 💪', 'Bookworm 📚', 'Night Owl 🌙', 'Early Bird 🌅', 'Homebody 🏠'];
@@ -48,17 +51,60 @@ export default function EditProfile() {
 
   const [form, setForm] = useState({ ...profile });
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
   const setLifestyle = (key, val) => setForm(prev => ({ ...prev, lifestyle: { ...prev.lifestyle, [key]: val } }));
 
-  const handleSave = () => {
-    updateProfile(form);
-    setSaved(true);
-    setTimeout(() => {
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile.uid) return;
+
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `profiles/${profile.uid}/avatar_${Date.now()}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      
+      // Update local form state (using both keys for compatibility)
+      setForm(prev => ({ 
+        ...prev, 
+        avatar: url,
+        profilePic: url 
+      }));
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!profile.uid) return;
+    
+    try {
+      setSaved(true);
+      // Persist to Firestore
+      const userRef = doc(db, "users", profile.uid);
+      await updateDoc(userRef, {
+        ...form,
+        updatedAt: new Date()
+      });
+      
+      // Sync local context
+      updateProfile(form);
+      
+      setTimeout(() => {
+        setSaved(false);
+        router.push('/profile/me');
+      }, 1200);
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Failed to save profile changes.");
       setSaved(false);
-      router.push('/profile/me');
-    }, 1200);
+    }
   };
 
   return (
@@ -82,13 +128,38 @@ export default function EditProfile() {
           className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-wider text-brand-gray mb-4">Profile Photo</p>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Image unoptimized width={100} height={100}  src={form.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"  />
-              <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-dark text-white rounded-full flex items-center justify-center shadow-md">
-                <Camera size={13} />
+            <div className="relative group">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept="image/*"
+              />
+              <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-white shadow-md">
+                <Image 
+                  unoptimized 
+                  width={100} 
+                  height={100}  
+                  src={form.avatar || form.profilePic || "/images/companion_1.png"} 
+                  alt="" 
+                  className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-40' : 'opacity-100'}`}  
+                />
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 size={24} className="text-brand-purple animate-spin" />
+                  </div>
+                )}
+              </div>
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-8 h-8 bg-brand-dark text-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-10"
+              >
+                <Camera size={14} />
               </button>
             </div>
-            <div>
+            <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
               <p className="text-sm font-bold text-brand-dark mb-0.5">Change photo</p>
               <p className="text-xs text-brand-gray">JPG, PNG up to 5MB</p>
             </div>
@@ -182,21 +253,21 @@ export default function EditProfile() {
             </div>
             <button
               type="button"
-              onClick={() => set('companionMode', !form.companionMode)}
-              className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-0.5 ${form.companionMode ? 'bg-brand-purple' : 'bg-gray-200'}`}
+              onClick={() => set('isCompanion', !form.isCompanion)}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-0.5 ${form.isCompanion ? 'bg-brand-purple' : 'bg-gray-200'}`}
             >
-              <span className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${form.companionMode ? 'translate-x-6' : 'translate-x-0'}`} />
+              <span className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${form.isCompanion ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
           </div>
 
-          {form.companionMode && (
+          {form.isCompanion && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 pt-4 border-t border-gray-100">
               <FieldRow label="Hourly Rate (₹)">
                 <div className="flex items-center gap-2">
                   <span className="text-brand-dark font-bold">₹</span>
                   <input type="number" min={200} max={5000} step={100}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-brand-dark bg-gray-50 focus:outline-none focus:border-brand-purple transition-colors"
-                    value={form.price} onChange={e => set('price', Number(e.target.value))} />
+                    value={form.hourlyRate} onChange={e => set('hourlyRate', Number(e.target.value))} />
                 </div>
               </FieldRow>
             </motion.div>

@@ -403,10 +403,13 @@ export default function Explore() {
       return { ...p, dist };
     });
 
-    // Distance filter (only if we have a reference location)
+    // Distance calculation remains, but we no longer filter by it
+    // Distance filter removed to show everyone registered on the page
+    /*
     if (userLoc || manualCity) {
       profiles = profiles.filter(p => p.dist !== null && p.dist <= filters.distance);
     }
+    */
 
     // Price
     profiles = profiles.filter(p => {
@@ -587,7 +590,7 @@ export default function Explore() {
   // loadingChat hook moved to top
   
   const activeFilterCount = [
-    filters.distance < 50,
+    // filters.distance removed from active count
     filters.priceMax < 5000 || filters.priceMin > 0,
     filters.vibes.length > 0,
     filters.services.length > 0,
