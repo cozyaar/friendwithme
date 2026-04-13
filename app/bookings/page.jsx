@@ -9,6 +9,12 @@ import {
   Check, X, Clock, ChevronRight, Users, Bell,
   Heart, PartyPopper, UserCheck, Search, Filter
 } from 'lucide-react';
+import { 
+  collection, query, where, getDocs, doc, getDoc,
+  onSnapshot
+} from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { db } from '@/lib/firebase';
 
 
 const TABS = [
@@ -232,7 +238,68 @@ function RequestsPage() {
   const [connections, setConnections] = useState([]);
   const [events, setEvents] = useState([]);
   const [sent] = useState([]);
-  const [messages] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+
+  // Fetch real chats for the current user
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const chatsRef = collection(db, "chats");
+        const q = query(chatsRef, where("participants", "array-contains", user.uid));
+        
+        const unsubscribeChats = onSnapshot(q, async (snapshot) => {
+          const chatList = [];
+          for (const chatDoc of snapshot.docs) {
+            const chatData = chatDoc.data();
+            const otherUid = chatData.participants?.find(p => p !== user.uid);
+            
+            let otherInfo = { 
+              name: `ID: ${chatDoc.id.slice(0, 8)}`, 
+              img: `https://ui-avatars.com/api/?name=${chatDoc.id.slice(0, 1)}&background=random` 
+            };
+
+            if (otherUid) {
+              try {
+                const uSnap = await getDoc(doc(db, 'users', otherUid));
+                if (uSnap.exists()) {
+                  const uData = uSnap.data();
+                  otherInfo.name = uData.name || otherInfo.name;
+                  otherInfo.img = uData.profilePic || uData.avatar || uData.photos?.[0] || otherInfo.img;
+                }
+              } catch (err) {
+                console.error("Error fetching participant info:", err);
+              }
+            }
+
+            chatList.push({
+              id: chatDoc.id,
+              chatId: chatDoc.id,
+              name: otherInfo.name,
+              img: otherInfo.img,
+              preview: chatData.lastMessage || "No messages yet",
+              time: chatData.updatedAt?.toDate ? chatData.updatedAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Now',
+              unread: false, // can be implemented later with unread counts
+              type: 'dm'
+            });
+          }
+          setMessages(chatList);
+          setMessagesLoading(false);
+        }, (error) => {
+          console.error("Error in chats sub:", error);
+          setMessagesLoading(false);
+        });
+
+        return () => unsubscribeChats();
+      } else {
+        setMessages([]);
+        setMessagesLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
 
   // Badge counts
   const badges = {
@@ -347,7 +414,14 @@ function RequestsPage() {
             {currentList.length === 0 ? (
               <EmptyState tab={search || filter === 'unread' ? 'connections' : activeTab} />
             ) : activeTab === 'messages' ? (
-              currentList.map((item, i) => <MessageCard key={item.id} item={item} index={i} />)
+              messagesLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-10 h-10 border-4 border-brand-purple border-t-transparent rounded-full animate-spin" />
+                  <p className="text-brand-gray text-sm font-medium">Fetching messages...</p>
+                </div>
+              ) : (
+                currentList.map((item, i) => <MessageCard key={item.id} item={item} index={i} />)
+              )
             ) : activeTab === 'sent' ? (
               currentList.map((item, i) => (
                 <RequestCard key={item.id} item={item} index={i}
