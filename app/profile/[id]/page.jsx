@@ -180,7 +180,7 @@ export default function ProfilePage() {
         {/* Sticky bottom CTA */}
         <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 px-4 py-4 flex gap-3">
           <button
-            onClick={() => router.push(`/chat/${id}`)}
+            onClick={() => router.push(`/messages/${id}`)}
             className="flex-1 py-3.5 bg-brand-dark text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-sm shadow-lg hover:opacity-90 transition-opacity"
           >
             <MessageCircle size={17} /> Send Message

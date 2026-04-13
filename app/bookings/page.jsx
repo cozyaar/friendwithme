@@ -134,7 +134,7 @@ function RequestCard({ item, onAccept, onDecline, showActions = true, showStatus
               <div className="flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full">
                 <Check size={13} /> Connected
               </div>
-              <Link href="/chat/list"
+              <Link href={`/messages/${item.chatId || item.id}`}
                 className="flex items-center gap-1.5 text-xs font-bold text-brand-dark border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-50 transition-colors">
                 <MessageCircle size={13} /> Start Chat <ChevronRight size={12} />
               </Link>
@@ -144,7 +144,7 @@ function RequestCard({ item, onAccept, onDecline, showActions = true, showStatus
           {/* Messages — just a "Reply" shortcut */}
           {!showActions && item.type !== undefined && (
             <div className="flex gap-2 mt-3">
-              <Link href="/chat/list"
+              <Link href={`/messages/${item.chatId || item.id}`}
                 className="flex items-center gap-1.5 text-xs font-bold text-brand-dark border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-50 transition-colors">
                 <MessageCircle size={13} /> Open Chat <ChevronRight size={12} />
               </Link>
@@ -165,7 +165,7 @@ function MessageCard({ item, index }) {
       transition={{ delay: index * 0.05 }}
       whileHover={{ y: -2, boxShadow: '0 12px 32px -8px rgba(0,0,0,0.10)' }}
     >
-      <Link href={`/chat/${item.chatId || item.id}`}
+      <Link href={`/messages/${item.chatId || item.id}`}
         className="flex items-center gap-4 bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all block">
         <div className="relative shrink-0">
           <Image unoptimized width={100} height={100}  src={item.img} alt={item.name}
