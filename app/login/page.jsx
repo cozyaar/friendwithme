@@ -96,7 +96,7 @@ export default function Login() {
           : errCode.includes('invalid-phone-number')
           ? 'Invalid phone number format.'
           : errCode.includes('captcha') || errCode.includes('recaptcha-not-ready')
-          ? 'Anti-spam check failed. Please try again.'
+          ? 'Anti-spam check failed. Ensure the domain (e.g., friendwithme.vercel.app) is added to "Authorized Domains" in Firebase Console > Authentication > Settings.'
           : `Failed to send OTP: ${errCode}`
       );
     } finally {
