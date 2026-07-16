@@ -51,22 +51,24 @@ export default function Login() {
 
   const setupRecaptcha = () => {
     if (typeof window !== 'undefined') {
-      // Always clean up existing verifier to avoid detached DOM node issues
       if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = null;
+        return;
       }
       
-      // Look for any left-over recaptcha iframes/containers and wipe them
-      document.getElementById('recaptcha-container').innerHTML = '';
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
 
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        'recaptcha-container',
-        { size: 'invisible' }
-      );
+      try {
+        window.recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          { size: 'invisible' }
+        );
+      } catch (err) {
+        console.error('Failed to initialize RecaptchaVerifier:', err);
+      }
     }
   };
 

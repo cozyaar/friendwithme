@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass, CalendarDays, Settings, PartyPopper,
   ChevronDown, BookOpen, User, Edit3, LogOut,
-  Star, Wallet, Heart
+  Star, Wallet, Heart, Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
@@ -74,6 +74,7 @@ export default function Navbar() {
 
           <div className="flex items-center gap-8 font-medium text-brand-gray">
             <Link href="/explore" className={pathname === '/explore' ? 'text-brand-dark' : 'hover:text-brand-dark'}>Explore</Link>
+            <Link href="/video-chat" className={pathname === '/video-chat' ? 'text-brand-dark' : 'hover:text-brand-dark'}>Video Chat</Link>
 
             {/* Events dropdown */}
             <div className="relative" onMouseEnter={() => setShowEventsMenu(true)} onMouseLeave={() => setShowEventsMenu(false)}>
@@ -186,6 +187,7 @@ export default function Navbar() {
       <nav className="fixed bottom-0 w-full z-50 glass border-t border-white/40 md:hidden pb-safe">
         <div className="flex justify-around items-center h-16">
           <MobileNavItem href="/explore" icon={Compass} active={pathname === '/explore'} />
+          <MobileNavItem href="/video-chat" icon={Video} active={pathname === '/video-chat'} />
           <MobileNavItem href="/events/explore" icon={PartyPopper} active={isEventsActive} />
           <MobileNavItem href="/bookings" icon={BookOpen} active={pathname === '/bookings'} />
           {isLoggedIn ? (

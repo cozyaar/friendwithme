@@ -454,11 +454,18 @@ export default function MyEvents() {
     try {
       const q = query(
         collection(db, "events"), 
-        where("createdBy", "==", user.uid),
-        orderBy("createdAt", "desc")
+        where("createdBy", "==", user.uid)
       );
       const snap = await getDocs(q);
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Sort in-memory to avoid requiring a composite index in Firestore
+      list.sort((a, b) => {
+        const t1 = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const t2 = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return t2 - t1;
+      });
+      
       setEvents(list);
     } catch (e) {
       console.error("fetchMyEvents error:", e);

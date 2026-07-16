@@ -1,36 +1,16 @@
 'use client';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
   MapPin, CalendarDays, Users, ChevronLeft, Send,
-  MessageCircle, CheckCircle2, Shield, UserCheck, X, Lock
+  MessageCircle, CheckCircle2, Shield, UserCheck, X, Lock, Loader2
 } from 'lucide-react';
-
-// Mock: who is the currently logged-in user
-// 'Aarushi' = creator  |  'Rohan' = already joined  |  'Karan' = not joined yet
-const CURRENT_USER = 'Karan';
-
-const EVENTS_DATA = {
-  e1: {
-    id: 'e1', title: 'Marina Beach Evening Chill', location: 'Marina Beach, Chennai',
-    date: '2026-05-10', time: '5:00 PM', slots: 5, joined: 3, interested: 14,
-    activities: ['Hangout 😌', 'Walk 🚶'],
-    description: "A relaxed evening on Marina beach — good vibes, local food, and a beautiful sunset walk along the shore. We'll grab some snacks from the beach stalls, find a good spot, and just vibe as the sun sets.",
-    requirements: 'Prefer non-smokers. Good energy and chill attitude required!',
-    creator: { name: 'Aarushi', img: '/images/companion_1.png', verified: true, age: 24 },
-    participants: [
-      { name: 'Rohan', img: '/images/companion_2.png' },
-      { name: 'Priya', img: '/images/companion_1.png' },
-    ],
-    pendingRequests: [
-      { name: 'Anjali', img: '/images/companion_1.png', message: 'Hey! I love beaches, would love to join!' },
-    ],
-    imgs: ['/images/companion_1.png', '/images/companion_2.png'],
-    genderPref: 'Anyone',
-  },
-};
+import { useRouter } from 'next/navigation';
+import { db, auth } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Small 1-on-1 DM chat with event creator (before joining)
 function PrivateChatModal({ event, currentUser, onClose }) {
@@ -40,7 +20,7 @@ function PrivateChatModal({ event, currentUser, onClose }) {
   ]);
   const sendMsg = () => {
     if (!msg.trim()) return;
-    setMessages(p => [...p, { id: Date.now(), sender: currentUser, text: msg, time: 'Now', mine: true }]);
+    setMessages(p => [...p, { id: Date.now(), sender: currentUser?.displayName || 'Me', text: msg, time: 'Now', mine: true }]);
     setMsg('');
   };
   return (
@@ -56,7 +36,7 @@ function PrivateChatModal({ event, currentUser, onClose }) {
       >
         <div className="flex items-center gap-3 p-5 border-b border-gray-100 shrink-0">
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X size={15} /></button>
-          <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-10 h-10 rounded-full object-cover" alt=""  />
+          <img src={event.creator.img} className="w-10 h-10 rounded-full object-cover" alt="" />
           <div>
             <p className="font-bold text-brand-dark text-sm">{event.creator.name}</p>
             <p className="text-xs text-brand-gray">Event organiser · Private chat</p>
@@ -74,7 +54,7 @@ function PrivateChatModal({ event, currentUser, onClose }) {
         <div className="p-4 border-t border-gray-100 flex gap-2 shrink-0">
           <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMsg()}
             placeholder={`Message ${event.creator.name}…`}
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2.5 text-sm outline-none focus:border-brand-purple"
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2.5 text-sm outline-none focus:border-brand-purple text-brand-dark"
           />
           <motion.button whileTap={{ scale: 0.9 }} onClick={sendMsg}
             className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white shrink-0">
@@ -90,9 +70,7 @@ function PrivateChatModal({ event, currentUser, onClose }) {
 function GroupChatModal({ event, onClose }) {
   const [msg, setMsg] = useState('');
   const [messages, setMessages] = useState([
-    { id: 1, user: 'Aarushi', img: '/images/companion_1.png', text: 'Hey everyone! So excited for the beach chill 🌊', time: '4:00 PM', mine: false },
-    { id: 2, user: 'Priya', img: '/images/companion_1.png', text: 'Cannot wait! 🏖️', time: '4:02 PM', mine: false },
-    { id: 3, user: 'You', img: '/images/companion_2.png', text: "I'll bring some snacks 🍿", time: '4:05 PM', mine: true },
+    { id: 1, user: event.creator.name, img: event.creator.img, text: 'Hey everyone! So excited for this event 🌊', time: '4:00 PM', mine: false },
   ]);
   const sendMsg = () => {
     if (!msg.trim()) return;
@@ -119,7 +97,7 @@ function GroupChatModal({ event, onClose }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.map(m => (
             <div key={m.id} className={`flex gap-3 ${m.mine ? 'flex-row-reverse' : ''}`}>
-              {!m.mine && <Image unoptimized width={100} height={100}  src={m.img} className="w-8 h-8 rounded-full object-cover shrink-0" alt=""  />}
+              {!m.mine && <img src={m.img} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />}
               <div className={`max-w-[75%] flex flex-col gap-0.5 ${m.mine ? 'items-end' : 'items-start'}`}>
                 {!m.mine && <span className="text-[11px] text-brand-gray font-semibold px-1">{m.user}</span>}
                 <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium ${m.mine ? 'bg-brand-dark text-white rounded-tr-sm' : 'bg-gray-100 text-brand-dark rounded-tl-sm'}`}>
@@ -133,7 +111,7 @@ function GroupChatModal({ event, onClose }) {
         <div className="p-4 border-t border-gray-100 flex gap-2 shrink-0">
           <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMsg()}
             placeholder="Message the group…"
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2.5 text-sm outline-none focus:border-brand-purple"
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2.5 text-sm outline-none focus:border-brand-purple text-brand-dark"
           />
           <motion.button whileTap={{ scale: 0.9 }} onClick={sendMsg}
             className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white shrink-0">
@@ -146,26 +124,135 @@ function GroupChatModal({ event, onClose }) {
 }
 
 export default function EventDetail({ params }) {
-  const event = EVENTS_DATA[params?.id] || EVENTS_DATA['e1'];
-
-  const isCreator = CURRENT_USER === event.creator.name;
-  // Check if current user is in participants list
-  const hasJoined = event.participants.some(p => p.name === CURRENT_USER);
-
+  const router = useRouter();
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   const [imgIndex, setImgIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('details');
-  const [pendingRequests, setPendingRequests] = useState(event.pendingRequests || []);
   const [showPrivateChat, setShowPrivateChat] = useState(false);
   const [showGroupChat, setShowGroupChat] = useState(false);
-  const [joined, setJoined] = useState(hasJoined);
-  const [requestSent, setRequestSent] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+
+  const fetchEventDetails = async () => {
+    if (!params?.id) return;
+    try {
+      const docRef = doc(db, 'events', params.id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Fetch creator info
+        let creatorInfo = { name: 'Host', img: '/images/companion_1.png', age: 24, verified: false };
+        if (data.createdBy) {
+          const userSnap = await getDoc(doc(db, 'users', data.createdBy));
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            creatorInfo = {
+              name: userData.name || 'Unknown',
+              img: userData.profilePic || (userData.photos && userData.photos[0]) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userData.name || 'H'),
+              age: userData.age || 24,
+              verified: userData.verified || false
+            };
+          }
+        }
+
+        // Fetch participants info
+        const participantsData = [];
+        if (data.participants && Array.isArray(data.participants)) {
+          for (const uid of data.participants) {
+            if (uid === data.createdBy) continue; // Organiser has Host tag, not listed as basic participant
+            const uSnap = await getDoc(doc(db, 'users', uid));
+            if (uSnap.exists()) {
+              const u = uSnap.data();
+              participantsData.push({
+                name: u.name || 'User',
+                img: u.profilePic || (u.photos && u.photos[0]) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(u.name || 'U'),
+                uid: uid
+              });
+            } else {
+              participantsData.push({ name: 'User', img: '/images/companion_2.png', uid });
+            }
+          }
+        }
+
+        setEvent({
+          id: docSnap.id,
+          title: data.title || 'Untitled Event',
+          location: data.location || 'Global',
+          date: data.startDate || 'Soon',
+          time: data.time || 'TBD',
+          slots: data.maxParticipants || 10,
+          joined: data.participants?.length || 1,
+          activities: data.activities || [],
+          description: data.description || 'No description provided.',
+          requirements: data.requirements || '',
+          creator: creatorInfo,
+          createdBy: data.createdBy,
+          participants: participantsData,
+          rawParticipants: data.participants || [],
+          imgs: data.images?.length ? data.images : ['https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=800']
+        });
+      } else {
+        console.error('Event not found');
+      }
+    } catch (err) {
+      console.error('Error fetching event:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      fetchEventDetails();
+    });
+    return () => unsub();
+  }, [params?.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-brand-purple" size={48} />
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-6xl mb-4">🔍</div>
+        <h1 className="text-2xl font-bold text-brand-dark mb-2">Event Not Found</h1>
+        <p className="text-brand-gray mb-6">The event you are looking for does not exist or has been deleted.</p>
+        <Link href="/events/explore" className="px-6 py-3 bg-brand-dark text-white rounded-2xl font-bold">Back to Explore</Link>
+      </div>
+    );
+  }
+
+  const isCreator = currentUser && currentUser.uid === event.createdBy;
+  const hasJoined = currentUser && event.rawParticipants.includes(currentUser.uid);
   const isFull = event.joined >= event.slots;
+  const tabs = ['details', 'participants'];
 
-  // Only creator sees: Requests tab
-  const tabs = ['details', 'participants', ...(isCreator ? ['requests'] : [])];
-
-  const handleRequest = (name) => {
-    setPendingRequests(prev => prev.filter(r => r.name !== name));
+  const handleJoinEvent = async () => {
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    setIsJoining(true);
+    try {
+      const docRef = doc(db, 'events', event.id);
+      await updateDoc(docRef, {
+        participants: arrayUnion(currentUser.uid)
+      });
+      await fetchEventDetails();
+    } catch (e) {
+      console.error('Error joining event:', e);
+      alert('Failed to join event: ' + e.message);
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   return (
@@ -210,16 +297,13 @@ export default function EventDetail({ params }) {
               </div>
             </div>
 
-            {/* Tabs — Requests only visible to creator */}
+            {/* Tabs */}
             <div className="flex gap-1 bg-gray-100 rounded-2xl p-1 w-fit">
               {tabs.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-5 py-2 rounded-xl text-sm font-bold capitalize transition-all ${activeTab === tab ? 'bg-white shadow-sm text-brand-dark' : 'text-brand-gray hover:text-brand-dark'}`}
                 >
                   {tab}
-                  {tab === 'requests' && pendingRequests.length > 0 && (
-                    <span className="ml-1.5 bg-brand-dark text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingRequests.length}</span>
-                  )}
                 </button>
               ))}
             </div>
@@ -230,7 +314,7 @@ export default function EventDetail({ params }) {
                 <motion.div key="details" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                   <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-brand-dark mb-3">About This Event</h3>
-                    <p className="text-brand-gray leading-relaxed text-sm">{event.description}</p>
+                    <p className="text-brand-gray leading-relaxed text-sm whitespace-pre-wrap">{event.description}</p>
                   </div>
                   {event.requirements && (
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex gap-3">
@@ -241,14 +325,16 @@ export default function EventDetail({ params }) {
                       </div>
                     </div>
                   )}
-                  <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-brand-dark mb-3">Activities</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {event.activities.map(a => (
-                        <span key={a} className="bg-brand-dark text-white px-4 py-2 rounded-full text-sm font-bold">{a}</span>
-                      ))}
+                  {event.activities && event.activities.length > 0 && (
+                    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                      <h3 className="font-bold text-brand-dark mb-3">Activities</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {event.activities.map(a => (
+                          <span key={a} className="bg-brand-dark text-white px-4 py-2 rounded-full text-sm font-bold">{a}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </motion.div>
               )}
 
@@ -258,57 +344,25 @@ export default function EventDetail({ params }) {
                 >
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="font-bold text-brand-dark">Participants ({event.joined}/{event.slots})</h3>
-                    <span className="text-xs text-brand-gray">{event.slots - event.joined} slots open</span>
+                    <span className="text-xs text-brand-gray">{Math.max(0, event.slots - event.joined)} slots open</span>
                   </div>
                   <div className="flex gap-3 flex-wrap">
                     {[event.creator, ...event.participants].map((p, i) => (
-                      <div key={i} className="flex flex-col items-center gap-1.5">
+                      <div key={i} className="flex flex-col items-center gap-1.5 w-16">
                         <div className="relative">
-                          <Image unoptimized width={100} height={100}  src={p.img} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" alt=""  />
+                          <img src={p.img} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow" alt="" />
                           {i === 0 && <div className="absolute -bottom-1 -right-1 bg-brand-dark text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">Host</div>}
                         </div>
-                        <span className="text-xs text-brand-gray font-medium">{p.name}</span>
+                        <span className="text-xs text-brand-gray font-medium truncate w-full text-center">{p.name}</span>
                       </div>
                     ))}
-                    {Array.from({ length: event.slots - event.joined - 1 }).map((_, i) => (
-                      <div key={`empty-${i}`} className="flex flex-col items-center gap-1.5">
-                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-2xl">+</div>
-                        <span className="text-xs text-gray-300">Open</span>
+                    {Array.from({ length: Math.max(0, event.slots - event.joined) }).map((_, i) => (
+                      <div key={`empty-${i}`} className="flex flex-col items-center gap-1.5 w-16">
+                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-2xl font-light cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => !hasJoined && !isFull && handleJoinEvent()}>+</div>
+                        <span className="text-xs text-gray-300 text-center">Open</span>
                       </div>
                     ))}
                   </div>
-                </motion.div>
-              )}
-
-              {/* Requests tab — creator only */}
-              {activeTab === 'requests' && isCreator && (
-                <motion.div key="requests" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4"
-                >
-                  <h3 className="font-bold text-brand-dark">Pending Requests</h3>
-                  {pendingRequests.length === 0 ? (
-                    <p className="text-brand-gray text-sm text-center py-6">No pending requests right now</p>
-                  ) : (
-                    pendingRequests.map(r => (
-                      <div key={r.name} className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl">
-                        <Image unoptimized width={100} height={100}  src={r.img} className="w-12 h-12 rounded-full object-cover shrink-0" alt=""  />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-brand-dark text-sm">{r.name}</p>
-                          {r.message && <p className="text-brand-gray text-sm mt-0.5 line-clamp-2">"{r.message}"</p>}
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => handleRequest(r.name)}
-                            className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors">
-                            <X size={16} />
-                          </button>
-                          <button onClick={() => handleRequest(r.name)}
-                            className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-600 hover:bg-green-200 transition-colors">
-                            <CheckCircle2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -328,7 +382,7 @@ export default function EventDetail({ params }) {
               </div>
               <div className="flex items-center gap-2">
                 <Users size={15} className="text-brand-purple shrink-0" />
-                <span className="font-semibold text-sm text-brand-dark">{event.joined}/{event.slots} joined · {event.genderPref}</span>
+                <span className="font-semibold text-sm text-brand-dark">{event.joined}/{event.slots} joined</span>
               </div>
             </div>
 
@@ -336,29 +390,24 @@ export default function EventDetail({ params }) {
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
               <p className="text-xs uppercase tracking-widest font-bold text-brand-gray mb-3">Organised by</p>
               <div className="flex items-center gap-3">
-                <Image unoptimized width={100} height={100}  src={event.creator.img} className="w-12 h-12 rounded-full object-cover" alt=""  />
+                <img src={event.creator.img} className="w-12 h-12 rounded-full object-cover" alt="" />
                 <div>
                   <div className="flex items-center gap-1">
                     <span className="font-bold text-brand-dark">{event.creator.name}</span>
-                    {event.creator.verified && <CheckCircle2 size={14} className="text-green-500" />}
                   </div>
                   <span className="text-xs text-brand-gray">Age {event.creator.age}</span>
                 </div>
               </div>
             </div>
 
-            {/* ── Action buttons ── */}
+            {/* Actions */}
             <div className="space-y-2.5">
-
               {isCreator ? (
-                // ① Creator — always has Group Chat
                 <button onClick={() => setShowGroupChat(true)}
                   className="w-full py-4 bg-brand-dark text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:opacity-90 text-sm">
                   <MessageCircle size={18} /> Group Chat
                 </button>
-
-              ) : joined ? (
-                // ② Approved participant — Group Chat unlocked
+              ) : hasJoined ? (
                 <>
                   <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-2.5 flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-600" />
@@ -369,38 +418,26 @@ export default function EventDetail({ params }) {
                     <MessageCircle size={18} /> Group Chat
                   </button>
                 </>
-
-              ) : requestSent ? (
-                // ③ Request sent — waiting for creator approval
-                <>
-                  <div className="w-full py-3.5 bg-green-50 border border-green-200 text-green-700 font-bold rounded-2xl flex items-center justify-center gap-2 text-sm">
-                    <CheckCircle2 size={16} /> Request Sent — Awaiting approval
-                  </div>
-                  <button onClick={() => setShowPrivateChat(true)}
-                    className="w-full py-3 border border-gray-200 text-brand-dark font-semibold rounded-2xl flex items-center justify-center gap-2 text-sm hover:bg-gray-50 transition-colors">
-                    <MessageCircle size={16} /> Message {event.creator.name}
-                  </button>
-                  <div className="flex items-center justify-center gap-1.5 text-xs text-brand-gray py-1">
-                    <Lock size={12} /> Group chat available after your request is approved
-                  </div>
-                </>
-
               ) : (
-                // ④ Not joined yet — show Join + Message Manager
                 <>
                   <motion.button whileTap={{ scale: 0.97 }}
-                    onClick={() => { if (!isFull) setRequestSent(true); }}
-                    disabled={isFull}
+                    onClick={handleJoinEvent}
+                    disabled={isFull || isJoining}
                     className={`w-full py-4 font-bold rounded-2xl flex items-center justify-center gap-2 text-sm shadow-lg ${
                       isFull ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-brand-dark text-white hover:opacity-90'
                     }`}
                   >
-                    <UserCheck size={18} /> {isFull ? 'Event is Full' : 'Send Join Request'}
+                    {isJoining ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <UserCheck size={18} />
+                    )}
+                    {isFull ? 'Event is Full' : 'Join Event'}
                   </motion.button>
 
                   <button onClick={() => setShowPrivateChat(true)}
                     className="w-full py-3 border border-gray-200 text-brand-dark font-semibold rounded-2xl flex items-center justify-center gap-2 text-sm hover:bg-gray-50 transition-colors">
-                    <MessageCircle size={16} /> Message {event.creator.name}
+                    <MessageCircle size={16} /> Message Host
                   </button>
                 </>
               )}
@@ -410,7 +447,7 @@ export default function EventDetail({ params }) {
       </div>
 
       <AnimatePresence>
-        {showPrivateChat && <PrivateChatModal event={event} currentUser={CURRENT_USER} onClose={() => setShowPrivateChat(false)} />}
+        {showPrivateChat && <PrivateChatModal event={event} currentUser={currentUser} onClose={() => setShowPrivateChat(false)} />}
         {showGroupChat && <GroupChatModal event={event} onClose={() => setShowGroupChat(false)} />}
       </AnimatePresence>
     </div>
